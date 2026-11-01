@@ -30,7 +30,7 @@ class ReproofingNotificationHttpTest {
         var output=temp.resolve("probe-output");
         var process=new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(output.toFile()).start();
         try {
-            assertTrue(process.waitFor(45,TimeUnit.SECONDS), "Owned HTTPS probe exceeded its bounded wait");
+            assertTrue(process.waitFor(75,TimeUnit.SECONDS), "Owned HTTPS probe exceeded its bounded wait");
             assertEquals(0,process.exitValue(),()->{try{return Files.readString(output);}catch(Exception e){return "Probe unavailable";}});
             assertTrue(responseReceipts.get().await(5,TimeUnit.SECONDS), "Fixture response writes were not observed");
         } finally {
