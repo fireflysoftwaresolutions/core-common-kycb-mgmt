@@ -85,7 +85,6 @@ public final class ReproofingNotificationPollerImpl implements SmartLifecycle {
         });
         future = scheduler.schedule(this::cycle, 0, TimeUnit.MILLISECONDS);
     }
-    private record CycleResult(int processed, ReproofingNotificationQueue queue) {}
     private synchronized void cycle() {
         if (!running || active) return;
         active = true;
@@ -96,18 +95,22 @@ public final class ReproofingNotificationPollerImpl implements SmartLifecycle {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Invalid notification response")))
                 .flatMap(count -> {
                     if (count < 0 || count > 1) return Mono.error(new IllegalArgumentException("Invalid notification response"));
+                    if (!acknowledge(current, count)) return Mono.empty();
                     return Mono.defer(port::status)
-                            .switchIfEmpty(Mono.error(new IllegalArgumentException("Invalid notification response")))
-                            .map(q -> new CycleResult(count, q));
+                            .switchIfEmpty(Mono.error(new IllegalArgumentException("Invalid notification response")));
                 })
                 .timeout(settings.requestTimeout())
                 .doFinally(signal -> finish(current))
                 .subscribe(result -> success(current, result), error -> failure(current, error)));
     }
-    private synchronized void success(Disposable.Swap current, CycleResult result) {
+    private synchronized boolean acknowledge(Disposable.Swap current, int count) {
+        if (!running || subscription != current || current.isDisposed()) return false;
+        processed.increment(count);
+        return true;
+    }
+    private synchronized void success(Disposable.Swap current, ReproofingNotificationQueue observed) {
         if (!running || subscription != current || current.isDisposed()) return;
         Instant now = clock.instant();
-        var observed = result.queue();
         if (observed.observedAt().isAfter(now.plusSeconds(30)) || observed.observedAt().isBefore(now.minusSeconds(90))) {
             failure(current, new IllegalArgumentException("Invalid notification response"));
             return;
@@ -115,7 +118,6 @@ public final class ReproofingNotificationPollerImpl implements SmartLifecycle {
         queue = observed;
         lastSuccess = now;
         consecutiveFailures = 0;
-        processed.increment(result.processed());
         successes.increment();
     }
     private synchronized void failure(Disposable.Swap current, Throwable error) {
