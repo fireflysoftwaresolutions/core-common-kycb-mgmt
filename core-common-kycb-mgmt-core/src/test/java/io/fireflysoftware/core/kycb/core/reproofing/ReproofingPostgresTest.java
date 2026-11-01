@@ -220,7 +220,7 @@ class ReproofingPostgresTest {
         service.consume(c.caseId(), req).block();
         db.sql(
                         "UPDATE identity_reproofing_case SET"
-                            + " grant_expires_at=clock_timestamp()-interval '1 second' WHERE"
+                            + " grant_issued_at=clock_timestamp()-interval '10 seconds',grant_expires_at=clock_timestamp()-interval '1 second' WHERE"
                             + " case_id=:id")
                 .bind("id", c.caseId())
                 .fetch()
