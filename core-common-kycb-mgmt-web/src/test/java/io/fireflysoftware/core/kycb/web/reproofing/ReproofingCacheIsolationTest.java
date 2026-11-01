@@ -45,6 +45,10 @@ class ReproofingCacheIsolationTest {
                 WebTestClient.bindToController(probe)
                         .webFilter(
                                 new ReproofingBodyLimitFilterImpl(),
+                                (exchange, chain) -> {
+                                    assertNull(exchange.getRequest().getHeaders().getFirst("X-Idempotency-Key"), "Recovery must remove generic cache authority before dispatch");
+                                    return chain.filter(exchange);
+                                },
                                 new IdempotencyWebFilter(new IdempotencyProperties(), cache))
                         .build();
         for (int i = 0; i < 2; i++)

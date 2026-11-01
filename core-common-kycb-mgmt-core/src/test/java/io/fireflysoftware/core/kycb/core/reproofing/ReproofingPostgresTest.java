@@ -300,6 +300,39 @@ class ReproofingPostgresTest {
                                 .block());
     }
 
+    @Test void wrongScopeAndEveryImmutableTargetFieldAreRefused() {
+        var c=start();
+        String[][] changes={{"issuer","https://other.example.test/realms/customer"},{"realm","other"},{"tenant","other"},{"subject","other"},{"population","STAFF"},{"purpose","UNLOCK"},{"generation","other"},{"credentialRevision","other"},{"nonce","other"}};
+        for(String[] change:changes){
+            var values=new java.util.HashMap<String,Object>();
+            values.put("issuer",binding.issuer());values.put("realm",binding.realm());values.put("tenant",binding.tenant());values.put("subject",binding.subject());values.put("partyId",binding.partyId());values.put("population",binding.population());values.put("purpose",binding.purpose());values.put("generation",binding.generation());values.put("credentialRevision",binding.credentialRevision());values.put("nonce",binding.nonce());
+            values.put(change[0],change[1]);
+            var changed=new com.fasterxml.jackson.databind.ObjectMapper().convertValue(values,ReproofingBinding.class);
+            assertThrows(RuntimeException.class,()->service.inspect(c.caseId(),new ConfirmReproofingRequest(changed)).block());
+        }
+        var otherParty=new ReproofingBinding(binding.issuer(),binding.realm(),binding.tenant(),binding.subject(),UUID.randomUUID(),binding.population(),binding.purpose(),binding.generation(),binding.credentialRevision(),binding.nonce());
+        assertThrows(RuntimeException.class,()->service.inspect(c.caseId(),new ConfirmReproofingRequest(otherParty)).block());
+    }
+    @Test void sameProviderEvidenceCannotBeClaimedByAnotherCase() {
+        nativeOwner.fixedEvidenceId="one-evidence-"+UUID.randomUUID();
+        assertNotNull(confirm(start()).authorization());binding=withNonce();var other=start();
+        assertThrows(RuntimeException.class,()->confirm(other));
+        assertNull(service.inspect(other.caseId(),new ConfirmReproofingRequest(binding)).block().authorization());
+    }
+    @Test void rejectedProviderResultExhaustsOnlyOriginalCase() {
+        nativeOwner.documentAuthentic=false;var c=start();
+        for(int i=0;i<3;i++)assertNull(confirm(c).authorization());
+        assertThrows(RuntimeException.class,()->confirm(c));
+        assertEquals(3,nativeOwner.verifications.get());
+        nativeOwner.documentAuthentic=true;binding=withNonce();assertNotNull(confirm(start()).authorization());
+    }
+    @Test void abandonedConfirmationReservationCannotOpenAnotherProviderOpportunity() {
+        var c=start();
+        db.sql("UPDATE identity_reproofing_case SET confirmation_id=:token,reserved_until=clock_timestamp()+interval '15 seconds' WHERE case_id=:id").bind("token",UUID.randomUUID()).bind("id",c.caseId()).fetch().rowsUpdated().block();
+        assertThrows(RuntimeException.class,()->confirm(c));assertEquals(0,nativeOwner.verifications.get());
+        db.sql("UPDATE identity_reproofing_case SET reserved_until=clock_timestamp()-interval '1 second' WHERE case_id=:id").bind("id",c.caseId()).fetch().rowsUpdated().block();
+        var recovered=confirm(c);assertEquals(c.providerStartId(),recovered.providerStartId());assertEquals(c.providerSessionId(),recovered.providerSessionId());assertNotNull(recovered.authorization());
+    }
     ReproofingBinding withNonce() {
         return new ReproofingBinding(
                 binding.issuer(),
@@ -323,6 +356,7 @@ class ReproofingPostgresTest {
                 documentAuthentic = true;
         AtomicInteger verifications = new AtomicInteger();
         ReproofingExecution journal;
+        String fixedEvidenceId;
 
         public Mono<ReproofingAdmission> prepare(ReproofingNativeRequest r) {
             return Mono.just(
@@ -348,7 +382,7 @@ class ReproofingPostgresTest {
                             r.providerId(),
                             r.policyId(),
                             wrongSession ? "other" : r.providerSessionId(),
-                            "evidence-" + r.caseId(),
+                            fixedEvidenceId==null?"evidence-" + r.caseId():fixedEvidenceId,
                             "sha256:" + "a".repeat(64),
                             wrongReference ? UUID.randomUUID() : r.binding().partyId(),
                             Instant.now().minusSeconds(1),
