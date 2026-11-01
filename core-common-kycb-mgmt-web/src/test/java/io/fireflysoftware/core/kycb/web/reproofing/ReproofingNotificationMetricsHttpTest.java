@@ -34,7 +34,6 @@ class ReproofingNotificationMetricsHttpTest {
     String fixture(String name){return name+"-fixture-"+"x".repeat(40);}
     void credential(AnnotationConfigApplicationContext context,String prefix,String name) throws Exception {
         var secret=temp.resolve(name);Files.writeString(secret,fixture(name));Files.setPosixFilePermissions(secret,PosixFilePermissions.fromString("rw-------"));
-        context.getEnvironment().getSystemProperties();
         var values=Map.<String,Object>of(prefix+"client-id",name,prefix+"secret-file",secret.toString());
         context.getEnvironment().getPropertySources().addFirst(new org.springframework.core.env.MapPropertySource(name,values));
     }
@@ -58,9 +57,11 @@ class ReproofingNotificationMetricsHttpTest {
             ReproofingSecurityConfigurationImpl.class,ReproofingNotificationSecurityConfigurationImpl.class,ReproofingNotificationController.class);
         context.refresh();
         var handler=new ReactorHttpHandlerAdapter(WebHttpHandlerBuilder.applicationContext(context).build());
-        var tls=HttpServer.create().host("localhost").port(0).secure(s->s.sslContext(SslContextBuilder.forServer(temp.resolve("cert.pem").toFile(),temp.resolve("key.pem").toFile()))).handle(handler).bindNow();
+        var serverSsl=SslContextBuilder.forServer(temp.resolve("cert.pem").toFile(),temp.resolve("key.pem").toFile()).build();
+        var clientSsl=SslContextBuilder.forClient().trustManager(temp.resolve("cert.pem").toFile()).build();
+        var tls=HttpServer.create().host("localhost").port(0).secure(s->s.sslContext(serverSsl)).handle(handler).bindNow();
         var clear=HttpServer.create().host("localhost").port(0).handle(handler).bindNow();
-        var transport=HttpClient.create().secure(s->s.sslContext(SslContextBuilder.forClient().trustManager(temp.resolve("cert.pem").toFile())));
+        var transport=HttpClient.create().secure(s->s.sslContext(clientSsl));
         var client=WebTestClient.bindToServer(new ReactorClientHttpConnector(transport)).baseUrl("https://localhost:"+tls.port()).build();
         try {
             client.get().uri(ROOT+"/metrics").headers(h->h.setBasicAuth("monitor",fixture("monitor"))).exchange()

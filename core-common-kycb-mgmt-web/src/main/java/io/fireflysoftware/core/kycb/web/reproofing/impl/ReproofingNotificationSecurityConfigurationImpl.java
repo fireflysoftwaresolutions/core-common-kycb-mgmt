@@ -40,7 +40,7 @@ public class ReproofingNotificationSecurityConfigurationImpl {
                             : Mono.error(new BadCredentialsException("Workload refused"));
                 })
                 .httpBasic(b -> b.authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.FORBIDDEN)));
-        return http.authorizeExchange(e -> e.pathMatchers(HttpMethod.GET, root)
+        return http.authorizeExchange(e -> e.pathMatchers(HttpMethod.GET, root, root + "/metrics")
                         .access((auth, context) -> auth.<AuthorizationResult>map(a -> new AuthorizationDecision(
                                 a.isAuthenticated() && monitor.identity.equals(a.getName())
                                         && "https".equals(context.getExchange().getRequest().getURI().getScheme())))

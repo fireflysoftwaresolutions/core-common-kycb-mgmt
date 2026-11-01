@@ -3,7 +3,7 @@ groups:
     rules:
       # Select the externally expected worker job; keep this alert outside Core.
       - alert: RecoveryNotificationWorkerAbsent
-        expr: absent(firefly_reproofing_notifications_active{job="identity-core"})
+        expr: absent(firefly_reproofing_notifications_active{job="identity-core-notifications"})
         for: 2m
         labels:
           severity: critical

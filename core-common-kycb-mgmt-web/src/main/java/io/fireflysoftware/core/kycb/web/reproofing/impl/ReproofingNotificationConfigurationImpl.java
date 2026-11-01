@@ -1,7 +1,6 @@
 package io.fireflysoftware.core.kycb.web.reproofing.impl;
 
 import io.fireflysoftware.core.kycb.core.reproofing.ReproofingNotificationPort;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.*;
 import org.springframework.core.env.Environment;
@@ -23,8 +22,11 @@ public class ReproofingNotificationConfigurationImpl {
         return new ReproofingNotificationClientImpl(env.getRequiredProperty("firefly.reproofing.native.base-url"),
                 credential.identity, credential.secret, reproofingNotificationSettings(env).requestTimeout());
     }
+    @Bean(destroyMethod = "close") public ReproofingNotificationMetricsImpl reproofingNotificationMetrics() {
+        return new ReproofingNotificationMetricsImpl();
+    }
     @Bean public ReproofingNotificationPollerImpl reproofingNotificationPoller(ReproofingNotificationPort port,
-            ReproofingNotificationSettings settings, MeterRegistry registry) {
-        return new ReproofingNotificationPollerImpl(port, settings, registry, Clock.systemUTC());
+            ReproofingNotificationSettings settings, ReproofingNotificationMetricsImpl metrics) {
+        return new ReproofingNotificationPollerImpl(port, settings, metrics.registry(), Clock.systemUTC());
     }
 }

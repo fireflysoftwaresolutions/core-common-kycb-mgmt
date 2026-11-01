@@ -40,9 +40,9 @@ class ReproofingNotificationConfigurationTest {
     @Test void disabledLifecycleNeedsNoCredentialsAndClosesMonitorIncludingSubpaths() {
         new ReactiveWebApplicationContextRunner().withUserConfiguration(ReproofingNotificationConfigurationImpl.class)
             .withBean(SimpleMeterRegistry.class,SimpleMeterRegistry::new)
-            .run(c->{assertFalse(c.containsBean("reproofingNotificationPoller"));assertFalse(c.containsBean("reproofingNotificationPort"));});
+            .run(c->{assertFalse(c.containsBean("reproofingNotificationPoller"));assertFalse(c.containsBean("reproofingNotificationPort"));assertFalse(c.containsBean("reproofingNotificationMetrics"));});
         var client=client(new MockEnvironment());
-        for(String path:new String[]{ROOT,ROOT+"/child"}) client.get().uri("https://core.example.test"+path).exchange().expectStatus().isForbidden();
+        for(String path:new String[]{ROOT,ROOT+"/metrics",ROOT+"/child"}) client.get().uri("https://core.example.test"+path).exchange().expectStatus().isForbidden();
     }
     @Test void globalFeatureFlagStillDisablesAnExplicitNotificationFlag() {
         new ReactiveWebApplicationContextRunner().withUserConfiguration(ReproofingNotificationConfigurationImpl.class)
@@ -93,7 +93,7 @@ class ReproofingNotificationConfigurationTest {
         var settings=new ReproofingNotificationSettings(java.time.Duration.ofSeconds(30),java.time.Duration.ofSeconds(30),java.time.Duration.ofSeconds(90),java.time.Duration.ofSeconds(120));
         var worker=new ReproofingNotificationPollerImpl(port,settings,new SimpleMeterRegistry(),java.time.Clock.systemUTC());
         var chain=new ReproofingNotificationSecurityConfigurationImpl().reproofingNotificationSecurityWebFilterChain(ServerHttpSecurity.http(),env());
-        var controller=new ReproofingNotificationController(worker);
+        var controller=new ReproofingNotificationController(worker,new ReproofingNotificationMetricsImpl());
         var result=WebTestClient.bindToController(controller).webFilter(new WebFilterChainProxy(chain)).build()
             .get().uri("https://core.example.test"+ROOT).headers(h->h.setBasicAuth("monitor",fixture("monitor")))
             .exchange().expectStatus().isOk().expectBody().jsonPath("$.state").isEqualTo("STARTING")
