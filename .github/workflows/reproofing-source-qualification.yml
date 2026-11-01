@@ -1,0 +1,57 @@
+name: Credential-loss Core source qualification
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-reactor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: fireflysoftwaresolutions/firefly-parent
+          ref: 6442bd51733ade4d5f4583e1afe812dd2c520b40
+          path: .qualification/firefly-parent
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Guard owned implementation names and preserved bean registrations
+        run: |
+          python3 -m unittest discover -s tooling -p test_implementation_names.py
+          python3 tooling/check_implementation_names.py
+      - run: python3 tooling/prepare_source_fixture.py
+      - name: Installer-owned hosted PostgreSQL
+        run: python3 tooling/reproofing_postgres_fixture.py
+      - name: Prepare readable candidate source artifact on hosted JVM
+        continue-on-error: true
+        run: |
+          curl --fail --silent --show-error --location https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format-2.0.0-all-deps.jar --output "$RUNNER_TEMP/google-java-format.jar"
+          python3 tooling/format_candidate_source.py "$RUNNER_TEMP/google-java-format.jar"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: formatted-candidate-source
+          path: .qualification/formatted/
+      - name: Full actual reactor
+        run: |
+          umask 077
+          status=0
+          mvn -B -ntp -Dmaven.repo.local="$RUNNER_TEMP/reproofing-m2" verify > .qualification/maven.log 2>&1 || status=$?
+          python3 tooling/summarize_source_fixture.py "$status"
+          exit "$status"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: reproofing-source-summary
+          path: |
+            .qualification/source-summary.json
+            core-common-kycb-mgmt-sdk/src/main/resources/openapi.yml
+            core-common-kycb-mgmt-sdk/target/core-common-kycb-mgmt-sdk-*.jar
+      - name: Stop only owned hosted fixture
+        if: always()
+        run: python3 tooling/reproofing_postgres_fixture.py stop

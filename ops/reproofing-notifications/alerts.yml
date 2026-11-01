@@ -1,0 +1,39 @@
+groups:
+  - name: identity-recovery-notifications
+    rules:
+      # Select the externally expected worker job; keep this alert outside Core.
+      - alert: RecoveryNotificationWorkerAbsent
+        expr: absent(firefly_reproofing_notifications_active{job="identity-core-notifications"})
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Expected recovery notification worker is absent
+      - alert: RecoveryNotificationPollingStale
+        expr: firefly_reproofing_notifications_stale == 1 or (time() - firefly_reproofing_notifications_last_success_epoch > 90)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Recovery notification polling has no recent validated observation
+      - alert: RecoveryNotificationTransportFailures
+        expr: increase(firefly_reproofing_notifications_failures_total{category=~"dependency|timeout|invalid_response"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Recovery notification RPC cycles are failing
+      - alert: RecoveryNotificationTerminalRows
+        expr: firefly_reproofing_notifications_queue{kind=~"failed|invalid"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Recovery notification queue needs operator review
+      - alert: RecoveryNotificationRetryBacklog
+        expr: firefly_reproofing_notifications_queue{kind="retrying"} > 0 or firefly_reproofing_notifications_queue{kind="oldest_due_delay_seconds"} > 120
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Recovery notifications have sustained retries or overdue work

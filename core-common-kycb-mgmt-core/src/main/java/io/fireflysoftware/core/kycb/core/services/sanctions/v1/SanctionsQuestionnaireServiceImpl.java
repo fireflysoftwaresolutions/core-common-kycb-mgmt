@@ -17,7 +17,7 @@
 
 package io.fireflysoftware.core.kycb.core.services.sanctions.v1;
 
-import io.fireflysoftware.core.kycb.core.mappers.sanctions.v1.SanctionsQuestionnaireMapper;
+import io.fireflysoftware.core.kycb.core.mappers.sanctions.v1.SanctionsQuestionnaireMapperImpl;
 import io.fireflysoftware.core.kycb.interfaces.dtos.sanctions.v1.SanctionsQuestionnaireDTO;
 import io.fireflysoftware.core.kycb.models.entities.sanctions.v1.SanctionsQuestionnaire;
 import io.fireflysoftware.core.kycb.models.repositories.sanctions.v1.SanctionsQuestionnaireRepository;
@@ -43,7 +43,7 @@ public class SanctionsQuestionnaireServiceImpl implements SanctionsQuestionnaire
     private SanctionsQuestionnaireRepository sanctionsQuestionnaireRepository;
 
     @Autowired
-    private SanctionsQuestionnaireMapper mapper;
+    private SanctionsQuestionnaireMapperImpl mapper;
 
     @Override
     public Mono<SanctionsQuestionnaireDTO> create(SanctionsQuestionnaireDTO sanctionsQuestionnaireDTO) {

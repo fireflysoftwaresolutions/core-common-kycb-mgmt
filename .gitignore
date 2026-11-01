@@ -36,3 +36,5 @@ target/
 **/target/generated-resources/
 .refactor-backup-*/
 .metadata-backup*
+
+.qualification/
