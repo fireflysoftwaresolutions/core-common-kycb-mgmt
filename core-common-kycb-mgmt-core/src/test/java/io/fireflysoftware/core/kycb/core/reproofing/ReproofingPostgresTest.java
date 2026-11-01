@@ -141,6 +141,15 @@ class ReproofingPostgresTest {
         assertEquals(c.authorization(), confirm(c).authorization());
         assertEquals(1, nativeOwner.verifications.get());
     }
+    @Test void journalBeforeGrantIssuanceCannotReconcile() {
+        var c=confirm(start());var req=request(c);service.consume(c.caseId(),req).block();
+        nativeOwner.journal=new ReproofingExecution(c.caseId(),req.executionId(),binding,"CREDENTIALS_REPLACED",Instant.EPOCH);
+        assertThrows(RuntimeException.class,()->service.record(c.caseId(),new RecordReproofingExecutionRequest(binding,req.authorizationId(),req.executionId(),"CREDENTIALS_REPLACED")).block());
+    }
+    @Test void providerSessionCannotBeReboundToAnotherCase() {
+        var c=start();binding=withNonce();var other=service.create(new CreateReproofingCaseRequest(binding)).block();
+        assertThrows(RuntimeException.class,()->service.bindSession(other.caseId(),new BindReproofingSessionRequest(binding,c.providerSessionId())).block());
+    }
     ReproofingBinding withNonce() {
         return new ReproofingBinding(binding.issuer(), binding.realm(), binding.tenant(), binding.subject(), binding.partyId(), binding.population(), binding.purpose(), binding.generation(), binding.credentialRevision(), UUID.randomUUID()
         .toString());
