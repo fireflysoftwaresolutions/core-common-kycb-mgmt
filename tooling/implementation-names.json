@@ -123,6 +123,12 @@
     ],
     "core-common-kycb-mgmt-web/src/test/java/io/fireflysoftware/core/kycb/web/reproofing/ReproofingExistingSecurityTest.java": [
       "Probe"
+    ],
+    "core-common-kycb-mgmt-web/src/main/java/io/fireflysoftware/core/kycb/web/reproofing/ReproofingNotificationController.java": [
+      "ReproofingNotificationController"
+    ],
+    "core-common-kycb-mgmt-web/src/test/java/io/fireflysoftware/core/kycb/web/reproofing/ReproofingNotificationConfigurationTest.java": [
+      "Probe"
     ]
   }
 }
