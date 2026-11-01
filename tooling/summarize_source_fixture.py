@@ -28,5 +28,6 @@ if s['maven_exit']==0:
  entries=subprocess.check_output(['jar','tf',str(jar)],text=True)
  if any(v in entries for v in ('ReproofingPostgresTest','ReproofingSecurityTest','SyntheticProvider')):raise SystemExit('Test fixture packaged in production artifact')
  s['test_fixture_in_product_jar']=False
+ s['generic_resource_server_in_product_jar']='BOOT-INF/lib/fireflyframework-security-resource-server-' in entries
  (r/'.qualification/source-summary.json').write_text(json.dumps(s,indent=2)+'\n')
  print('Original producer operations, generated SDK and production fixture exclusion verified.')
