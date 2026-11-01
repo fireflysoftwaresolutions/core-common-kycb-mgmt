@@ -122,6 +122,7 @@ class ReproofingNotificationPollerTest {
             Thread.sleep(350);
             assertNull(worker.snapshot().lastSuccessAt());assertNull(worker.snapshot().queue());
             assertEquals("UNAVAILABLE",worker.snapshot().state().name());
+            assertEquals(1,registry.get("firefly.reproofing.notifications.processed").counter().count(), "Acknowledged dispatch remains processed even if status times out");
         } finally {worker.stop();}
     }
     @Test void rejectsUnsafeSchedulingBounds() {
