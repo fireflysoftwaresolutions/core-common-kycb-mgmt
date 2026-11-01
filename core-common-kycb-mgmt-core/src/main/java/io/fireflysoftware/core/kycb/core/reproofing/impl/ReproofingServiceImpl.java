@@ -144,11 +144,14 @@ public final class ReproofingServiceImpl implements ReproofingService {
                         state.provider(), state.policy(), state.session());
                 return evidenceOwner.verify(evidenceRequest)
                         .switchIfEmpty(Mono.error(unavailable()))
-                        .flatMap(evidence -> nativeOwner.admit(
-                                new ReproofingNativeRequest(state.binding(), state.id(), null))
-                                .switchIfEmpty(Mono.error(unavailable()))
-                                .flatMap(admission -> finishConfirmation(caseId, request.binding(),
-                                        reservation, evidence, admission)))
+                        .flatMap(evidence -> finalizeNegative(caseId, request.binding(),
+                                reservation, evidence).switchIfEmpty(Mono.defer(() ->
+                                        nativeOwner.admit(new ReproofingNativeRequest(
+                                                        state.binding(), state.id(), null))
+                                                .switchIfEmpty(Mono.error(unavailable()))
+                                                .flatMap(admission -> finishConfirmation(caseId,
+                                                        request.binding(), reservation,
+                                                        evidence, admission)))))
                         .onErrorResume(error -> release(caseId, reservation).then(Mono.error(
                                 error instanceof ResponseStatusException ? error : unavailable())));
             });
@@ -179,27 +182,49 @@ public final class ReproofingServiceImpl implements ReproofingService {
         });
     }
 
+    private Mono<ReproofingCaseResponse> finalizeNegative(UUID caseId, ReproofingBinding binding,
+            UUID reservation, VerifiedReproofingEvidence evidence) {
+        return locked(caseId, binding, (state, databaseNow) -> {
+            confirmation(state, reservation, evidence, databaseNow);
+            if (completeProof(binding, evidence)) {
+                // Commit the assessment before requesting independent native admission.
+                return Mono.empty();
+            }
+            return reject(state, reservation, false, databaseNow);
+        });
+    }
+
     private Mono<ReproofingCaseResponse> finishConfirmation(UUID caseId, ReproofingBinding binding,
             UUID reservation, VerifiedReproofingEvidence evidence, ReproofingAdmission admission) {
         return locked(caseId, binding, (state, databaseNow) -> {
-            live(state, databaseNow);
+            confirmation(state, reservation, evidence, databaseNow);
             admission(admission, binding, databaseNow, true);
-            if (admission.expiresAt().isAfter(state.expiry())
-                    || !reservation.equals(state.confirmation())
-                    || state.reservedUntil() == null || !databaseNow.isBefore(state.reservedUntil())) {
+            if (admission.expiresAt().isAfter(state.expiry()) || !completeProof(binding, evidence)) {
                 throw denied();
             }
-            boolean completeProof = envelope(state, evidence, databaseNow)
-                    && evidence.referenceMatched() && binding.partyId().equals(evidence.referenceId())
-                    && evidence.documentAuthentic() && evidence.liveMatch() && evidence.fraudCleared();
-            Mono<Integer> budget = completeProof ? lockedBudget(state.budgetKey()) : Mono.just(0);
-            return budget.flatMap(verifiedGrants -> {
-                if (completeProof && verifiedGrants < 3) {
+            return lockedBudget(state.budgetKey()).flatMap(verifiedGrants -> {
+                if (verifiedGrants < 3) {
                     return grant(state, evidence, admission, databaseNow);
                 }
-                return reject(state, reservation, verifiedGrants >= 3, databaseNow);
+                return reject(state, reservation, true, databaseNow);
             });
         });
+    }
+
+    private void confirmation(State state, UUID reservation, VerifiedReproofingEvidence evidence,
+            Instant databaseNow) {
+        live(state, databaseNow);
+        if (!"PENDING".equals(state.status()) || state.authorization() != null
+                || !reservation.equals(state.confirmation()) || state.reservedUntil() == null
+                || !databaseNow.isBefore(state.reservedUntil())
+                || !envelope(state, evidence, databaseNow)) {
+            throw denied();
+        }
+    }
+
+    private boolean completeProof(ReproofingBinding binding, VerifiedReproofingEvidence evidence) {
+        return evidence.referenceMatched() && binding.partyId().equals(evidence.referenceId())
+                && evidence.documentAuthentic() && evidence.liveMatch() && evidence.fraudCleared();
     }
 
     private Mono<Integer> lockedBudget(String budgetKey) {

@@ -20,7 +20,7 @@ if s['maven_exit']==0:
  for op in required:
   if 'operationId: '+op not in spec.read_text(): raise SystemExit('Original producer operation missing: '+op)
  database=[t for t in s['reports'] if t['name'].endswith('.ReproofingPostgresTest')]
- if len(database)!=1 or int(database[0]['tests'])<11 or int(database[0]['skipped'])!=0: raise SystemExit('Required actual PostgreSQL suite did not execute')
+ if len(database)!=1 or int(database[0]['tests'])<19 or int(database[0]['skipped'])!=0: raise SystemExit('Required actual PostgreSQL suite did not execute')
  s['producer_spec_sha256']=hashlib.sha256(spec.read_bytes()).hexdigest()
  s['sdk_jar_sha256']=hashlib.sha256(sdk[0].read_bytes()).hexdigest()
  s['producer_operations']=required
