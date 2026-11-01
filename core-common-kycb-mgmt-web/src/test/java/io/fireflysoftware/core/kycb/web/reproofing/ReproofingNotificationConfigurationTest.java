@@ -35,7 +35,7 @@ class ReproofingNotificationConfigurationTest {
     }
     WebTestClient client(MockEnvironment env) {
         var chain=new ReproofingNotificationSecurityConfigurationImpl().reproofingNotificationSecurityWebFilterChain(ServerHttpSecurity.http(),env);
-        return WebTestClient.bindToController(new Probe()).webFilter(new WebFilterChainProxy(chain)).build();
+        return WebTestClient.bindToController(new Probe()).webFilter(new WebFilterChainProxy(chain, new ReproofingSecurityConfigurationImpl().reproofingSecurityWebFilterChain(ServerHttpSecurity.http(),env))).build();
     }
     @Test void disabledLifecycleNeedsNoCredentialsAndClosesMonitorIncludingSubpaths() {
         new ReactiveWebApplicationContextRunner().withUserConfiguration(ReproofingNotificationConfigurationImpl.class)
@@ -43,6 +43,13 @@ class ReproofingNotificationConfigurationTest {
             .run(c->{assertFalse(c.containsBean("reproofingNotificationPoller"));assertFalse(c.containsBean("reproofingNotificationPort"));});
         var client=client(new MockEnvironment());
         for(String path:new String[]{ROOT,ROOT+"/child"}) client.get().uri("https://core.example.test"+path).exchange().expectStatus().isForbidden();
+    }
+    @Test void globalFeatureFlagStillDisablesAnExplicitNotificationFlag() {
+        new ReactiveWebApplicationContextRunner().withUserConfiguration(ReproofingNotificationConfigurationImpl.class)
+            .withPropertyValues(PREFIX+"enabled=true", "firefly.reproofing.enabled=false")
+            .run(c->assertFalse(c.containsBean("reproofingNotificationPoller")));
+        client(new MockEnvironment().withProperty(PREFIX+"enabled","true")).get()
+            .uri("https://core.example.test"+ROOT).exchange().expectStatus().isForbidden();
     }
     @Test void missingOrMixedCredentialAndUnsafeFilesFailWithoutDisclosingPaths() throws Exception {
         var configuration=new ReproofingNotificationConfigurationImpl();
@@ -64,5 +71,6 @@ class ReproofingNotificationConfigurationTest {
         client.post().uri("https://core.example.test"+ROOT).headers(h->h.setBasicAuth("monitor",fixture("monitor"))).exchange().expectStatus().isForbidden();
         client.get().uri("https://core.example.test"+ROOT+"/child").headers(h->h.setBasicAuth("monitor",fixture("monitor"))).exchange().expectStatus().isForbidden();
         client.get().uri("https://core.example.test"+ROOT).exchange().expectStatus().isForbidden();
+        client.post().uri("https://core.example.test/api/v1/identity-recovery/cases").headers(h->h.setBasicAuth("monitor",fixture("monitor"))).exchange().expectStatus().isForbidden();
     }
 }

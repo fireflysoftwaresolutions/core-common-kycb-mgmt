@@ -39,6 +39,10 @@ class ReproofingExistingSecurityTest {
     @Test void optionalConfiguredFrameworkPolicyCannotSilentlyBackOff(){
         runner().run(context->assertThat(context).hasFailed());
     }
+    @Test void notificationChainCannotSatisfyExistingPolicyComposition() {
+        runner().withPropertyValues("firefly.reproofing.existing-security-chain-bean=reproofingNotificationSecurityWebFilterChain")
+                .run(context->assertThat(context).hasFailed());
+    }
     @Configuration(proxyBeanMethods=false)
     static class ExplicitExistingPolicy {
         @Bean(name="fireflySecurityWebFilterChain")

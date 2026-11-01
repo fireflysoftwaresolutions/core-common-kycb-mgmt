@@ -96,6 +96,34 @@ class ReproofingNotificationPollerTest {
             finally {worker.stop();}
         }
     }
+    @Test void concurrentStartsCannotOverlapAndFixedDelayBeginsAfterCompletion() throws Exception {
+        var starts=new java.util.concurrent.CopyOnWriteArrayList<Long>();
+        var live=new AtomicInteger();var maximum=new AtomicInteger();
+        var dispatch=Mono.defer(()->{
+            starts.add(System.nanoTime()); maximum.accumulateAndGet(live.incrementAndGet(),Math::max);
+            return Mono.delay(Duration.ofMillis(350)).map(n->0).doFinally(signal->live.decrementAndGet());
+        });
+        var timing=new ReproofingNotificationSettings(Duration.ofSeconds(1),Duration.ofSeconds(1),Duration.ofSeconds(3),Duration.ofSeconds(120));
+        var worker=new ReproofingNotificationPollerImpl(port(dispatch,Mono.just(queue(0,0,0,0,0,0,0))),timing,registry,clock);
+        var threads=java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {
+            for(int n=0;n<40;n++) threads.submit(worker::start);
+            await(()->starts.size()>=2);
+            assertTrue(starts.get(1)-starts.get(0)>=Duration.ofMillis(1300).toNanos());
+            assertEquals(1,maximum.get());
+        } finally {worker.stop();threads.shutdownNow();}
+    }
+    @Test void dispatchAndStatusShareOneDeadlineAndLateResponseCannotOverwriteFailure() throws Exception {
+        var dispatch=Mono.delay(Duration.ofMillis(600)).map(n->1);
+        var status=Mono.delay(Duration.ofMillis(600)).map(n->queue(0,0,1,0,0,0,0));
+        var worker=new ReproofingNotificationPollerImpl(port(dispatch,status),settings,registry,clock);
+        try {
+            worker.start();await(()->worker.snapshot().consecutiveFailures()==1 && !worker.snapshot().activeCycle());
+            Thread.sleep(350);
+            assertNull(worker.snapshot().lastSuccessAt());assertNull(worker.snapshot().queue());
+            assertEquals("UNAVAILABLE",worker.snapshot().state().name());
+        } finally {worker.stop();}
+    }
     @Test void rejectsUnsafeSchedulingBounds() {
         assertThrows(IllegalArgumentException.class,()->new ReproofingNotificationSettings(Duration.ZERO,Duration.ofSeconds(1),Duration.ofSeconds(3),Duration.ofSeconds(1)));
         assertThrows(IllegalArgumentException.class,()->new ReproofingNotificationSettings(Duration.ofSeconds(1),Duration.ofSeconds(61),Duration.ofSeconds(90),Duration.ofSeconds(1)));
