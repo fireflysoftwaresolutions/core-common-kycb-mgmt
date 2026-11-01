@@ -49,10 +49,14 @@ class ReproofingPostgresTest {
         for(int i=0;i<4;i++)assertThrows(RuntimeException.class,()->confirm(c));
         nativeOwner.unavailable=false;assertNotNull(confirm(c).authorization());
     }
-    @Test void positivelyMatchedSubjectFailureBudgetSurvivesNewCases() {
+    @Test void fullyVerifiedGrantBudgetSurvivesNewCasesAndRestart() {
+        for(int i=0;i<3;i++){assertNotNull(confirm(start()).authorization());binding=withNonce();}
+        assertNull(confirm(start()).authorization());
+    }
+    @Test void failedMandatoryProofDoesNotChargeVictimSubject() {
         nativeOwner.documentAuthentic=false;
-        for(int i=0;i<3;i++){assertNull(confirm(start()).authorization());binding=withNonce();}
-        nativeOwner.documentAuthentic=true;assertNull(confirm(start()).authorization());
+        for(int i=0;i<4;i++){assertNull(confirm(start()).authorization());binding=withNonce();}
+        nativeOwner.documentAuthentic=true;assertNotNull(confirm(start()).authorization());
     }
     @Test void decoyPrepareDoesNotAuthorizeReplacement() {
         var c=start();nativeOwner.eligible=false;assertThrows(RuntimeException.class,()->confirm(c));

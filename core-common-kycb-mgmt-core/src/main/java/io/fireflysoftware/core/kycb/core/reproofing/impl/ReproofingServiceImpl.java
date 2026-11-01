@@ -117,25 +117,23 @@ public final class ReproofingServiceImpl implements ReproofingService {
     }
     private Mono<ReproofingCaseResponse> finishConfirmation(UUID id,ReproofingBinding binding,UUID reservation,VerifiedReproofingEvidence evidence,ReproofingAdmission a){
         return transaction(()->load(id,binding,true).flatMap(s->now().flatMap(time->{
-            live(s,time);admission(a,binding,time,true);
+            live(s,time);admission(a,binding,time,true);if(a.expiresAt().isAfter(s.expiry()))throw denied();
             if(!reservation.equals(s.confirmation()) || s.reservedUntil()==null || !time.isBefore(s.reservedUntil()))throw denied();
             boolean matched=envelope(s,evidence,time) && evidence.referenceMatched() && binding.partyId().equals(evidence.referenceId());
             boolean passed=matched && evidence.documentAuthentic() && evidence.liveMatch() && evidence.fraudCleared();
-            Mono<Integer> budget=matched?db.sql("INSERT INTO identity_reproofing_budget(subject_budget_key,failures) VALUES(:key,0) ON CONFLICT DO NOTHING")
-                .bind("key",s.budgetKey()).fetch().rowsUpdated().then(db.sql("SELECT failures FROM identity_reproofing_budget WHERE subject_budget_key=:key FOR UPDATE")
-                .bind("key",s.budgetKey()).map((r,m)->r.get("failures",Integer.class)).one()):Mono.just(0);
+            Mono<Integer> budget=passed?db.sql("INSERT INTO identity_reproofing_budget(subject_budget_key,verified_grants) VALUES(:key,0) ON CONFLICT DO NOTHING")
+                .bind("key",s.budgetKey()).fetch().rowsUpdated().then(db.sql("SELECT verified_grants FROM identity_reproofing_budget WHERE subject_budget_key=:key FOR UPDATE")
+                .bind("key",s.budgetKey()).map((r,m)->r.get("verified_grants",Integer.class)).one()):Mono.just(0);
             return budget.flatMap(failures->{
                 if(passed && failures<3){
-                    Instant expiry=time.plusSeconds(120);if(expiry.isAfter(s.expiry()))expiry=s.expiry();if(expiry.isAfter(evidence.expiresAt()))expiry=evidence.expiresAt();
-                    return db.sql("UPDATE identity_reproofing_case SET status='VERIFIED',authorization_id=:authorization,execution_id=:execution,evidence_id=:evidence,evidence_digest=:digest,grant_expires_at=:expiry,confirmation_id=NULL,reserved_until=NULL WHERE case_id=:id")
+                    Instant expiry=time.plusSeconds(120);if(expiry.isAfter(s.expiry()))expiry=s.expiry();if(expiry.isAfter(evidence.expiresAt()))expiry=evidence.expiresAt();if(expiry.isAfter(a.expiresAt()))expiry=a.expiresAt();
+                    return db.sql("UPDATE identity_reproofing_budget SET verified_grants=verified_grants+1 WHERE subject_budget_key=:key").bind("key",s.budgetKey()).fetch().rowsUpdated().then(db.sql("UPDATE identity_reproofing_case SET status='VERIFIED',authorization_id=:authorization,execution_id=:execution,evidence_id=:evidence,evidence_digest=:digest,grant_expires_at=:expiry,confirmation_id=NULL,reserved_until=NULL WHERE case_id=:id")
                         .bind("id",id).bind("authorization",UUID.randomUUID()).bind("execution",UUID.randomUUID()).bind("evidence",evidence.evidenceId()).bind("digest",evidence.evidenceDigest())
-                        .bind("expiry",OffsetDateTime.ofInstant(expiry,java.time.ZoneOffset.UTC)).fetch().rowsUpdated().then(audit(id,"VERIFIED"))
+                        .bind("expiry",OffsetDateTime.ofInstant(expiry,java.time.ZoneOffset.UTC)).fetch().rowsUpdated()).then(audit(id,"VERIFIED"))
                         .then(load(id,binding,false)).map(v->v.response(time));
                 }
-                Mono<Void> charge=matched && failures<3?db.sql("UPDATE identity_reproofing_budget SET failures=failures+1 WHERE subject_budget_key=:key")
-                    .bind("key",s.budgetKey()).fetch().rowsUpdated().then():Mono.empty();
-                return charge.then(db.sql("UPDATE identity_reproofing_case SET failures=failures+1,status=CASE WHEN failures>=2 OR :exhausted THEN 'DENIED' ELSE 'PENDING' END,confirmation_id=NULL,reserved_until=NULL WHERE case_id=:id")
-                    .bind("exhausted",failures>=3).bind("id",id).fetch().rowsUpdated()).then(audit(id,"CONFIRMATION_FAILED_"+reservation))
+                return db.sql("UPDATE identity_reproofing_case SET failures=failures+1,status=CASE WHEN failures>=2 OR :exhausted THEN 'DENIED' ELSE 'PENDING' END,confirmation_id=NULL,reserved_until=NULL WHERE case_id=:id")
+                    .bind("exhausted",failures>=3).bind("id",id).fetch().rowsUpdated().then(audit(id,"CONFIRMATION_FAILED_"+reservation))
                     .then(load(id,binding,false)).map(v->v.response(time));
             });
         })));
@@ -149,7 +147,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
         validate(request.binding());
         return nativeOwner.admit(new ReproofingNativeRequest(request.binding(),id,request.executionId())).switchIfEmpty(Mono.error(unavailable()))
             .flatMap(a->transaction(()->load(id,request.binding(),true).flatMap(s->now().flatMap(time->{
-                admission(a,request.binding(),time,true);authorization(s,request,time,false);
+                admission(a,request.binding(),time,true);if(a.expiresAt().isAfter(s.expiry()))throw denied();authorization(s,request,time,false);
                 if("CONSUMED".equals(s.status()))return Mono.just(s.grant());
                 return db.sql("UPDATE identity_reproofing_case SET status='CONSUMED' WHERE case_id=:id").bind("id",id).fetch().rowsUpdated()
                     .then(audit(id,"CONSUMED")).thenReturn(s.grant());
@@ -180,7 +178,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
         ReproofingAuthorization grant(){return authorization()==null?null:new ReproofingAuthorization(id(),authorization(),execution(),binding(),str("evidence_digest"),policy(),grantExpiry());}
         ReproofingCaseResponse response(Instant time){
             boolean expired=!"EXECUTED".equals(status()) && (!time.isBefore(expiry()) || grantExpiry()!=null&&!time.isBefore(grantExpiry()));
-            return new ReproofingCaseResponse(id(),uuid("provider_start_id"),binding(),expired?"EXPIRED":status(),provider(),policy(),session(),expiry(),expired?null:grant());
+            return new ReproofingCaseResponse(id(),uuid("provider_start_id"),binding(),expired?"EXPIRED":status(),provider(),policy(),session(),expiry(),expired || grantExpiry()!=null&&!time.isBefore(grantExpiry())?null:grant());
         }
     }
 }

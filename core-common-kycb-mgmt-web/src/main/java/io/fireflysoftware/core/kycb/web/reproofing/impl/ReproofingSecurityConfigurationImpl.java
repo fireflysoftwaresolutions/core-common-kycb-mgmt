@@ -8,6 +8,7 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
@@ -38,7 +39,7 @@ public class ReproofingSecurityConfigurationImpl {
    return match?Mono.just(new UsernamePasswordAuthenticationToken(identity,null,List.of())):Mono.error(new BadCredentialsException("Workload refused"));
   }).httpBasic(b->b.authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.FORBIDDEN)));
   return http.authorizeExchange(e->e.pathMatchers(HttpMethod.POST,root,root+"/*/inspect",root+"/*/provider-session",root+"/*/confirm",root+"/*/authorizations/consume",root+"/*/authorizations/verify",root+"/*/executions")
-   .access((auth,context)->auth.map(a->new AuthorizationDecision(a.isAuthenticated() && identity.equals(a.getName()) && "https".equals(context.getExchange().getRequest().getURI().getScheme()))).defaultIfEmpty(new AuthorizationDecision(false)))
+   .access((auth,context)->auth.<AuthorizationResult>map(a->new AuthorizationDecision(a.isAuthenticated() && identity.equals(a.getName()) && "https".equals(context.getExchange().getRequest().getURI().getScheme()))).defaultIfEmpty(new AuthorizationDecision(false)))
    .anyExchange().denyAll()).build();
  }
 }

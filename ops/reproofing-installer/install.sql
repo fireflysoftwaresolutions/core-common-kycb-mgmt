@@ -12,7 +12,8 @@ CREATE TABLE identity_reproofing_case (
  CHECK ((authorization_id IS NULL AND execution_id IS NULL AND grant_expires_at IS NULL) OR
         (authorization_id IS NOT NULL AND execution_id IS NOT NULL AND grant_expires_at IS NOT NULL AND grant_expires_at<=expires_at))
 );
-CREATE TABLE identity_reproofing_budget (subject_budget_key char(64) PRIMARY KEY, failures integer NOT NULL DEFAULT 0 CHECK(failures BETWEEN 0 AND 3));
+CREATE UNIQUE INDEX identity_reproofing_evidence_once ON identity_reproofing_case(provider_id,evidence_id) WHERE evidence_id IS NOT NULL;
+CREATE TABLE identity_reproofing_budget (subject_budget_key char(64) PRIMARY KEY, verified_grants integer NOT NULL DEFAULT 0 CHECK(verified_grants BETWEEN 0 AND 3));
 CREATE TABLE identity_reproofing_audit (case_id uuid NOT NULL REFERENCES identity_reproofing_case(case_id), event varchar(64) NOT NULL, at timestamptz NOT NULL DEFAULT clock_timestamp(), PRIMARY KEY(case_id,event));
 REVOKE ALL ON identity_reproofing_case,identity_reproofing_budget,identity_reproofing_audit FROM PUBLIC;
 GRANT SELECT,INSERT,UPDATE ON identity_reproofing_case,identity_reproofing_budget TO :"reproofing_runtime";
