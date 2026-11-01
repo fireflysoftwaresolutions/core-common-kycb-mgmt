@@ -165,6 +165,38 @@ class ReproofingPostgresTest {
     }
 
     @Test
+    void authenticatedNegativeBoundsIneligibleCaseWithoutAdmissionOrVictimCharge() {
+        var caseValue = start();
+        nativeOwner.eligible = false;
+        nativeOwner.documentAuthentic = false;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            var rejected = confirm(caseValue);
+            assertNull(rejected.authorization());
+            assertEquals(attempt == 2 ? "DENIED" : "PENDING", rejected.status());
+        }
+        assertThrows(RuntimeException.class, () -> confirm(caseValue));
+        assertEquals(0, nativeOwner.admissions.get());
+        Integer failures = db.sql("SELECT failures FROM identity_reproofing_case WHERE case_id=:id")
+                .bind("id", caseValue.caseId()).map((row, metadata) -> row.get("failures", Integer.class)).one().block();
+        Long budgets = db.sql("SELECT count(*) AS total FROM identity_reproofing_budget WHERE subject_budget_key=(SELECT subject_budget_key FROM identity_reproofing_case WHERE case_id=:id)")
+                .bind("id", caseValue.caseId()).map((row, metadata) -> row.get("total", Long.class)).one().block();
+        assertEquals(3, failures);
+        assertEquals(0L, budgets);
+    }
+
+    @Test
+    void expiredNegativeEvidenceCannotFinalizeARefusalOrInvokeAdmission() {
+        var caseValue = start();
+        nativeOwner.documentAuthentic = false;
+        nativeOwner.expired = true;
+        assertThrows(RuntimeException.class, () -> confirm(caseValue));
+        assertEquals(0, nativeOwner.admissions.get());
+        Integer failures = db.sql("SELECT failures FROM identity_reproofing_case WHERE case_id=:id")
+                .bind("id", caseValue.caseId()).map((row, metadata) -> row.get("failures", Integer.class)).one().block();
+        assertEquals(0, failures);
+    }
+
+    @Test
     void decoyPrepareDoesNotAuthorizeReplacement() {
         var c = start();
         nativeOwner.eligible = false;
@@ -245,11 +277,11 @@ class ReproofingPostgresTest {
     void substitutedEvidenceSessionAndExpiredEvidenceAreRefused() {
         var c = start();
         nativeOwner.wrongSession = true;
-        assertNull(confirm(c).authorization());
+        assertThrows(RuntimeException.class, () -> confirm(c));
         binding = withNonce();
         nativeOwner.wrongSession = false;
         nativeOwner.expired = true;
-        assertNull(confirm(start()).authorization());
+        assertThrows(RuntimeException.class, () -> confirm(start()));
     }
 
     @Test
@@ -355,6 +387,7 @@ class ReproofingPostgresTest {
                 expired,
                 documentAuthentic = true;
         AtomicInteger verifications = new AtomicInteger();
+        AtomicInteger admissions = new AtomicInteger();
         ReproofingExecution journal;
         String fixedEvidenceId;
 
@@ -364,6 +397,7 @@ class ReproofingPostgresTest {
         }
 
         public Mono<ReproofingAdmission> admit(ReproofingNativeRequest r) {
+            admissions.incrementAndGet();
             return Mono.just(
                     new ReproofingAdmission(r.binding(), eligible, Instant.now().plusSeconds(100)));
         }
