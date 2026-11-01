@@ -41,6 +41,8 @@ class ReproofingCacheIsolationTest {
                                 new AssertionError("Recovery must never cache authority"));
                     }
                 };
+        var properties = new IdempotencyProperties();
+        properties.setNamespace("core-reproofing-fixture");
         var client =
                 WebTestClient.bindToController(probe)
                         .webFilter(
@@ -49,7 +51,7 @@ class ReproofingCacheIsolationTest {
                                     assertNull(exchange.getRequest().getHeaders().getFirst("X-Idempotency-Key"), "Recovery must remove generic cache authority before dispatch");
                                     return chain.filter(exchange);
                                 },
-                                new IdempotencyWebFilter(new IdempotencyProperties(), cache))
+                                new IdempotencyWebFilter(properties, cache, exchange -> Mono.just("server-owned-fixture-scope")))
                         .build();
         for (int i = 0; i < 2; i++)
             client.post()

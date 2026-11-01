@@ -73,6 +73,12 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Qualifies preservation of an optional deployment-provided resource server. -->
+        <dependency>
+            <groupId>org.fireflyframework</groupId>
+            <artifactId>fireflyframework-security-resource-server</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
