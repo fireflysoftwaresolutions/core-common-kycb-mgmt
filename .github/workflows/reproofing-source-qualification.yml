@@ -20,6 +20,8 @@ jobs:
           distribution: temurin
           java-version: '25'
       - run: python3 tooling/prepare_source_fixture.py
+      - name: Installer-owned hosted PostgreSQL
+        run: python3 tooling/reproofing_postgres_fixture.py
       - name: Full actual reactor
         run: |
           umask 077
@@ -32,3 +34,6 @@ jobs:
         with:
           name: reproofing-source-summary
           path: .qualification/source-summary.json
+      - name: Stop only owned hosted fixture
+        if: always()
+        run: python3 tooling/reproofing_postgres_fixture.py stop
