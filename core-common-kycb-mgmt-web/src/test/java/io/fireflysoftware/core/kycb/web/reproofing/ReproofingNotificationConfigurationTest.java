@@ -63,6 +63,28 @@ class ReproofingNotificationConfigurationTest {
         var linked=env();linked.setProperty(PREFIX+"secret-file",link.toString());assertThrows(IllegalStateException.class,()->configuration.reproofingNotificationPort(linked));
         var missing=env();missing.setProperty(PREFIX+"monitor.secret-file",temp.resolve("missing").toString());assertThrows(IllegalStateException.class,()->configuration.reproofingNotificationPort(missing));
     }
+    @Test void configuredWorkerKeepsNotificationSeriesOutOfGlobalRegistryAndActuator() throws Exception {
+        var global=new io.micrometer.prometheusmetrics.PrometheusMeterRegistry(io.micrometer.prometheusmetrics.PrometheusConfig.DEFAULT);
+        var before=java.util.Set.copyOf(io.micrometer.core.instrument.Metrics.globalRegistry.getRegistries());
+        var environment=env();
+        var port=new io.fireflysoftware.core.kycb.core.reproofing.ReproofingNotificationPort() {
+            public reactor.core.publisher.Mono<Integer> dispatchOne(){return reactor.core.publisher.Mono.just(0);}
+            public reactor.core.publisher.Mono<io.fireflysoftware.core.kycb.interfaces.reproofing.ReproofingNotificationQueue> status(){return reactor.core.publisher.Mono.just(new io.fireflysoftware.core.kycb.interfaces.reproofing.ReproofingNotificationQueue(java.time.Instant.now(),0,0,0,0,0,0,0,0));}
+        };
+        try {
+            new ReactiveWebApplicationContextRunner().withUserConfiguration(ReproofingNotificationConfigurationImpl.class)
+                .withInitializer(c->c.getEnvironment().merge(environment))
+                .withBean(io.micrometer.prometheusmetrics.PrometheusMeterRegistry.class,()->global)
+                .withBean("fixtureNotificationPort",io.fireflysoftware.core.kycb.core.reproofing.ReproofingNotificationPort.class,()->port,definition->definition.setPrimary(true))
+                .run(c->{
+                    assertNull(c.getStartupFailure());
+                    assertNotNull(c.getBean(ReproofingNotificationPollerImpl.class));
+                    assertFalse(global.scrape().contains("firefly_reproofing_notifications"),"Private notification series entered global Prometheus export");
+                    assertEquals(java.util.Set.of(global),java.util.Set.copyOf(c.getBeansOfType(io.micrometer.core.instrument.MeterRegistry.class).values()));
+                    assertEquals(before,java.util.Set.copyOf(io.micrometer.core.instrument.Metrics.globalRegistry.getRegistries()));
+                });
+        } finally {global.close();}
+    }
     @Test void actualMonitorReturnsOnlySafeProcessSnapshotAndIsHiddenFromProducer() throws Exception {
         var port=new io.fireflysoftware.core.kycb.core.reproofing.ReproofingNotificationPort() {
             public reactor.core.publisher.Mono<Integer> dispatchOne(){return reactor.core.publisher.Mono.error(new AssertionError("Disabled worker called native"));}
