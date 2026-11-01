@@ -63,6 +63,25 @@ class ReproofingNotificationConfigurationTest {
         var linked=env();linked.setProperty(PREFIX+"secret-file",link.toString());assertThrows(IllegalStateException.class,()->configuration.reproofingNotificationPort(linked));
         var missing=env();missing.setProperty(PREFIX+"monitor.secret-file",temp.resolve("missing").toString());assertThrows(IllegalStateException.class,()->configuration.reproofingNotificationPort(missing));
     }
+    @Test void actualMonitorReturnsOnlySafeProcessSnapshotAndIsHiddenFromProducer() throws Exception {
+        var port=new io.fireflysoftware.core.kycb.core.reproofing.ReproofingNotificationPort() {
+            public reactor.core.publisher.Mono<Integer> dispatchOne(){return reactor.core.publisher.Mono.error(new AssertionError("Disabled worker called native"));}
+            public reactor.core.publisher.Mono<io.fireflysoftware.core.kycb.interfaces.reproofing.ReproofingNotificationQueue> status(){return reactor.core.publisher.Mono.error(new AssertionError("Disabled worker called native"));}
+        };
+        var settings=new ReproofingNotificationSettings(java.time.Duration.ofSeconds(30),java.time.Duration.ofSeconds(30),java.time.Duration.ofSeconds(90),java.time.Duration.ofSeconds(120));
+        var worker=new ReproofingNotificationPollerImpl(port,settings,new SimpleMeterRegistry(),java.time.Clock.systemUTC());
+        var chain=new ReproofingNotificationSecurityConfigurationImpl().reproofingNotificationSecurityWebFilterChain(ServerHttpSecurity.http(),env());
+        var controller=new ReproofingNotificationController(worker);
+        var result=WebTestClient.bindToController(controller).webFilter(new WebFilterChainProxy(chain)).build()
+            .get().uri("https://core.example.test"+ROOT).headers(h->h.setBasicAuth("monitor",fixture("monitor")))
+            .exchange().expectStatus().isOk().expectBody().jsonPath("$.state").isEqualTo("STARTING")
+            .jsonPath("$.activeCycle").isEqualTo(false).jsonPath("$.consecutiveFailures").isEqualTo(0).returnResult();
+        var json=new com.fasterxml.jackson.databind.ObjectMapper().readTree(result.getResponseBody());
+        var fields=new java.util.HashSet<String>();json.fieldNames().forEachRemaining(fields::add);
+        assertEquals(java.util.Set.of("state","activeCycle","lastAttemptAt","lastSuccessAt","consecutiveFailures","queue"),fields);
+        assertTrue(json.get("queue").isNull()); assertTrue(json.get("lastSuccessAt").isNull());
+        assertTrue(ReproofingNotificationController.class.isAnnotationPresent(io.swagger.v3.oas.annotations.Hidden.class));
+    }
     @Test void monitorRequiresSeparateExactIdentityHttpsAndGetOnly() throws Exception {
         var client=client(env());
         client.get().uri("https://core.example.test"+ROOT).headers(h->h.setBasicAuth("monitor",fixture("monitor"))).exchange().expectStatus().isOk();

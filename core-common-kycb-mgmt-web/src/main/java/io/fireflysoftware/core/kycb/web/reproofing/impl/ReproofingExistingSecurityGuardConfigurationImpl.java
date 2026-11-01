@@ -25,6 +25,7 @@ public class ReproofingExistingSecurityGuardConfigurationImpl {
             String existingName = environment.getProperty(
                     "firefly.reproofing.existing-security-chain-bean", "fireflySecurityWebFilterChain");
             if (existingName.equals("reproofingSecurityWebFilterChain")
+                    || existingName.equals("reproofingNotificationSecurityWebFilterChain")
                     || !context.containsBean(existingName)
                     || !(context.getBean(existingName) instanceof SecurityWebFilterChain)) {
                 throw new IllegalStateException(
