@@ -24,8 +24,8 @@ import org.springframework.stereotype.Component;
 /**
  * Mapper for converting between SanctionsQuestionnaire entity and DTO.
  */
-@Component
-public class SanctionsQuestionnaireMapper {
+@Component("sanctionsQuestionnaireMapper")
+public class SanctionsQuestionnaireMapperImpl {
 
     /**
      * Convert entity to DTO.

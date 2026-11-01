@@ -17,7 +17,7 @@
 
 package io.fireflysoftware.core.kycb.core.services.sanctions.v1;
 
-import io.fireflysoftware.core.kycb.core.mappers.sanctions.v1.SanctionsQuestionnaireMapper;
+import io.fireflysoftware.core.kycb.core.mappers.sanctions.v1.SanctionsQuestionnaireMapperImpl;
 import io.fireflysoftware.core.kycb.interfaces.dtos.sanctions.v1.SanctionsQuestionnaireDTO;
 import io.fireflysoftware.core.kycb.interfaces.enums.sanctions.v1.EntitySanctionsQuestionnaireTypeEnum;
 import io.fireflysoftware.core.kycb.models.entities.sanctions.v1.SanctionsQuestionnaire;
@@ -45,7 +45,7 @@ class SanctionsQuestionnaireServiceImplTest {
     private SanctionsQuestionnaireRepository repository;
 
     @Mock
-    private SanctionsQuestionnaireMapper mapper;
+    private SanctionsQuestionnaireMapperImpl mapper;
 
     @InjectMocks
     private SanctionsQuestionnaireServiceImpl service;

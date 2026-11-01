@@ -19,8 +19,8 @@ package io.fireflysoftware.core.kycb.web.controllers.corporate.v1;
 
 import org.fireflyframework.core.filters.FilterRequest;
 import org.fireflyframework.core.queries.PaginationResponse;
-import io.fireflysoftware.core.kycb.core.services.economic.v1.EconomicActivityService;
-import io.fireflysoftware.core.kycb.interfaces.dtos.economic.v1.EconomicActivityDTO;
+import io.fireflysoftware.core.kycb.core.services.ownership.v1.UboService;
+import io.fireflysoftware.core.kycb.interfaces.dtos.ownership.v1.UboDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,143 +34,143 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/v1/corporate/parties/{partyId}/activities")
-@Tag(name = "Economic Activities", description = "API for managing economic activities of legal persons")
-public class EconomicActivityController {
+@RestController("uboController")
+@RequestMapping("/api/v1/corporate/parties/{partyId}/ubos")
+@Tag(name = "UBO Management", description = "API for managing Ultimate Beneficial Owners")
+public class UboControllerImpl {
 
     @Autowired
-    private EconomicActivityService economicActivityService;
+    private UboService uboService;
 
     @GetMapping
     @Operation(
-            summary = "List economic activities",
-            description = "Retrieves all economic activities for the specified legal person with filtering capabilities",
+            summary = "List UBOs",
+            description = "Retrieves all UBOs for the specified party",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved economic activities",
+                            description = "Successfully retrieved UBOs",
                             content = @Content(schema = @Schema(implementation = PaginationResponse.class))
                     )
             }
     )
-    public Mono<ResponseEntity<PaginationResponse<EconomicActivityDTO>>> listEconomicActivities(
+    public Mono<ResponseEntity<PaginationResponse<UboDTO>>> listUbos(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "Filter criteria")
-            @ModelAttribute FilterRequest<EconomicActivityDTO> filterRequest
+            @ModelAttribute FilterRequest<UboDTO> filterRequest
     ) {
         // Set party ID filter
-        EconomicActivityDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new EconomicActivityDTO();
+        UboDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new UboDTO();
         filter.setPartyId(partyId);
         filterRequest.setFilters(filter);
 
-        return economicActivityService.findAll(filterRequest)
+        return uboService.findAll(filterRequest)
                 .map(ResponseEntity::ok);
     }
 
     @PostMapping
     @Operation(
-            summary = "Add economic activity",
-            description = "Adds a new economic activity to the specified legal person",
+            summary = "Add UBO",
+            description = "Adds a new UBO to the specified party",
             responses = {
                     @ApiResponse(
                             responseCode = "201",
-                            description = "Successfully added economic activity",
-                            content = @Content(schema = @Schema(implementation = EconomicActivityDTO.class))
+                            description = "Successfully added UBO",
+                            content = @Content(schema = @Schema(implementation = UboDTO.class))
                     )
             }
     )
-    public Mono<ResponseEntity<EconomicActivityDTO>> addEconomicActivity(
+    public Mono<ResponseEntity<UboDTO>> addUbo(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "Economic activity data", required = true)
-            @RequestBody EconomicActivityDTO economicActivityDTO
+            @Parameter(description = "UBO data", required = true)
+            @RequestBody UboDTO uboDTO
     ) {
-        economicActivityDTO.setPartyId(partyId);
-        return economicActivityService.create(economicActivityDTO)
+        uboDTO.setPartyId(partyId);
+        return uboService.create(uboDTO)
                 .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
     }
 
-    @GetMapping("/{activityId}")
+    @GetMapping("/{uboId}")
     @Operation(
-            summary = "Get specific activity",
-            description = "Retrieves a specific economic activity by its ID",
+            summary = "Get specific UBO",
+            description = "Retrieves a specific UBO by its ID",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved economic activity",
-                            content = @Content(schema = @Schema(implementation = EconomicActivityDTO.class))
+                            description = "Successfully retrieved UBO",
+                            content = @Content(schema = @Schema(implementation = UboDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Economic activity not found"
+                            description = "UBO not found"
                     )
             }
     )
-    public Mono<ResponseEntity<EconomicActivityDTO>> getEconomicActivity(
+    public Mono<ResponseEntity<UboDTO>> getUbo(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the activity", required = true)
-            @PathVariable UUID activityId
+            @Parameter(description = "ID of the UBO", required = true)
+            @PathVariable UUID uboId
     ) {
-        return economicActivityService.getById(activityId)
+        return uboService.getById(uboId)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PatchMapping("/{activityId}")
+    @PatchMapping("/{uboId}")
     @Operation(
-            summary = "Update economic activity",
-            description = "Updates an existing economic activity",
+            summary = "Update UBO details",
+            description = "Updates an existing UBO",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully updated economic activity",
-                            content = @Content(schema = @Schema(implementation = EconomicActivityDTO.class))
+                            description = "Successfully updated UBO",
+                            content = @Content(schema = @Schema(implementation = UboDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Economic activity not found"
+                            description = "UBO not found"
                     )
             }
     )
-    public Mono<ResponseEntity<EconomicActivityDTO>> updateEconomicActivity(
+    public Mono<ResponseEntity<UboDTO>> updateUbo(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the activity", required = true)
-            @PathVariable UUID activityId,
-            @Parameter(description = "Updated economic activity data", required = true)
-            @RequestBody EconomicActivityDTO economicActivityDTO
+            @Parameter(description = "ID of the UBO", required = true)
+            @PathVariable UUID uboId,
+            @Parameter(description = "Updated UBO data", required = true)
+            @RequestBody UboDTO uboDTO
     ) {
-        economicActivityDTO.setPartyId(partyId);
-        return economicActivityService.update(activityId, economicActivityDTO)
+        uboDTO.setPartyId(partyId);
+        return uboService.update(uboId, uboDTO)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @DeleteMapping("/{activityId}")
+    @DeleteMapping("/{uboId}")
     @Operation(
-            summary = "Delete economic activity",
-            description = "Deletes an economic activity",
+            summary = "Delete UBO",
+            description = "Deletes a UBO",
             responses = {
                     @ApiResponse(
                             responseCode = "204",
-                            description = "Successfully deleted economic activity"
+                            description = "Successfully deleted UBO"
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Economic activity not found"
+                            description = "UBO not found"
                     )
             }
     )
-    public Mono<ResponseEntity<Void>> deleteEconomicActivity(
+    public Mono<ResponseEntity<Void>> deleteUbo(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the activity", required = true)
-            @PathVariable UUID activityId
+            @Parameter(description = "ID of the UBO", required = true)
+            @PathVariable UUID uboId
     ) {
-        return economicActivityService.delete(activityId)
+        return uboService.delete(uboId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 }

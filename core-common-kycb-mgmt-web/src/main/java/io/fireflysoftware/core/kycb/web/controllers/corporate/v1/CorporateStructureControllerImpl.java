@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
+@RestController("corporateStructureController")
 @RequestMapping("/api/v1/corporate/parties/{partyId}/structure")
 @Tag(name = "Corporate Structure", description = "API for managing corporate structure relationships")
-public class CorporateStructureController {
+public class CorporateStructureControllerImpl {
 
     @Autowired
     private CorporateStructureService corporateStructureService;

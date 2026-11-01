@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
+@RestController("complianceCaseController")
 @RequestMapping("/api/v1/compliance/cases")
 @Tag(name = "Compliance Cases", description = "API for managing compliance cases")
-public class ComplianceCaseController {
+public class ComplianceCaseControllerImpl {
 
     @Autowired
     private ComplianceCaseService complianceCaseService;

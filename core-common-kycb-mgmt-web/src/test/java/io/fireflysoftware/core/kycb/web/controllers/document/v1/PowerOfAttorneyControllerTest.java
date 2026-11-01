@@ -41,7 +41,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Web-layer test for {@link PowerOfAttorneyController#addPowerOfAttorney(PowerOfAttorneyDTO)}.
+ * Web-layer test for {@link PowerOfAttorneyControllerImpl#addPowerOfAttorney(PowerOfAttorneyDTO)}.
  *
  * <p>Verifies that the controller's POST handler accepts the new BE-5c fields
  * (email, signingAuthorized, isPep), forwards them to the service unchanged,
@@ -57,11 +57,11 @@ class PowerOfAttorneyControllerTest {
     @Mock
     private PowerOfAttorneyService service;
 
-    private PowerOfAttorneyController controller;
+    private PowerOfAttorneyControllerImpl controller;
 
     @BeforeEach
     void setUp() {
-        controller = new PowerOfAttorneyController();
+        controller = new PowerOfAttorneyControllerImpl();
         ReflectionTestUtils.setField(controller, "powerOfAttorneyService", service);
     }
 

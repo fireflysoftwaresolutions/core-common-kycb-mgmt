@@ -33,10 +33,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
+@RestController("sanctionsQuestionnaireController")
 @RequestMapping("/api/v1/identity/parties/{partyId}/sanctions-questionnaire")
 @Tag(name = "Sanctions Questionnaire", description = "API for managing sanctions and embargo questionnaires")
-public class SanctionsQuestionnaireController {
+public class SanctionsQuestionnaireControllerImpl {
 
     @Autowired
     private SanctionsQuestionnaireService sanctionsQuestionnaireService;

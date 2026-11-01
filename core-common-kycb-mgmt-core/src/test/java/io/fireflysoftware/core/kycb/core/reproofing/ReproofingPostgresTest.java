@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 class ReproofingPostgresTest {
     DatabaseClient db;
     ReproofingServiceImpl service;
-    Fixture nativeOwner;
+    FixtureImpl nativeOwner;
     ReproofingBinding binding;
 
     @BeforeEach
@@ -40,7 +40,7 @@ class ReproofingPostgresTest {
                                         System.getenv("REPROOFING_TEST_PASSWORD"))
                                 .build());
         db = DatabaseClient.create(factory);
-        nativeOwner = new Fixture();
+        nativeOwner = new FixtureImpl();
         binding =
                 new ReproofingBinding(
                         "https://id.example.test/realms/customer",
@@ -471,7 +471,7 @@ class ReproofingPostgresTest {
                 UUID.randomUUID().toString());
     }
 
-    static class Fixture implements ReproofingNativePort, ReproofingEvidencePort {
+    static class FixtureImpl implements ReproofingNativePort, ReproofingEvidencePort {
         boolean eligible = true,
                 unavailable,
                 wrongReference,

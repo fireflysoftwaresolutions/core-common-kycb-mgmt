@@ -92,7 +92,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
                         SELECT * FROM identity_reproofing_case
                         WHERE issuer_nonce_key=:key FOR UPDATE
                         """).bind("key", nonceKey).fetch().one())
-                .map(State::new)
+                .map(StateImpl::new)
                 .flatMap(state -> {
                     if (!state.binding().equals(binding)) {
                         throw denied();
@@ -158,7 +158,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
         });
     }
 
-    private Mono<State> reserve(UUID caseId, ReproofingBinding binding, UUID reservation) {
+    private Mono<StateImpl> reserve(UUID caseId, ReproofingBinding binding, UUID reservation) {
         return locked(caseId, binding, (state, databaseNow) -> {
             live(state, databaseNow);
             if (state.authorization() != null) {
@@ -211,7 +211,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
         });
     }
 
-    private void confirmation(State state, UUID reservation, VerifiedReproofingEvidence evidence,
+    private void confirmation(StateImpl state, UUID reservation, VerifiedReproofingEvidence evidence,
             Instant databaseNow) {
         live(state, databaseNow);
         if (!"PENDING".equals(state.status()) || state.authorization() != null
@@ -239,7 +239,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
                         .map((row, metadata) -> row.get("verified_grants", Integer.class)).one());
     }
 
-    private Mono<ReproofingCaseResponse> grant(State state, VerifiedReproofingEvidence evidence,
+    private Mono<ReproofingCaseResponse> grant(StateImpl state, VerifiedReproofingEvidence evidence,
             ReproofingAdmission admission, Instant databaseNow) {
         Instant expiry = earliest(databaseNow.plusSeconds(120), state.expiry(),
                 evidence.expiresAt(), admission.expiresAt());
@@ -262,7 +262,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
                 .map(updated -> updated.response(databaseNow));
     }
 
-    private Mono<ReproofingCaseResponse> reject(State state, UUID reservation,
+    private Mono<ReproofingCaseResponse> reject(StateImpl state, UUID reservation,
             boolean exhausted, Instant databaseNow) {
         return database.sql("""
                 UPDATE identity_reproofing_case SET failures=failures+1,
@@ -337,7 +337,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
         });
     }
 
-    private void validateJournal(State state, RecordReproofingExecutionRequest request,
+    private void validateJournal(StateImpl state, RecordReproofingExecutionRequest request,
             ReproofingExecution journal, Instant databaseNow) {
         if (!Set.of("CONSUMED", "EXECUTED").contains(state.status())
                 || !Objects.equals(state.authorization(), request.authorizationId())
@@ -353,7 +353,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
         }
     }
 
-    private boolean envelope(State state, VerifiedReproofingEvidence evidence, Instant databaseNow) {
+    private boolean envelope(StateImpl state, VerifiedReproofingEvidence evidence, Instant databaseNow) {
         return evidence != null && state.id().equals(evidence.caseId())
                 && state.binding().equals(evidence.binding()) && state.provider().equals(evidence.providerId())
                 && state.policy().equals(evidence.policyId()) && state.session().equals(evidence.providerSessionId())
@@ -364,7 +364,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
                 && bounded(evidence.evidenceId(), 512) && bounded(evidence.evidenceDigest(), 512);
     }
 
-    private void authorization(State state, ReproofingAuthorizationRequest request,
+    private void authorization(StateImpl state, ReproofingAuthorizationRequest request,
             Instant databaseNow, boolean consumed) {
         live(state, databaseNow);
         if (state.authorization() == null || !state.authorization().equals(request.authorizationId())
@@ -388,7 +388,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
         text(binding.nonce(), 128);
     }
 
-    private void live(State state, Instant databaseNow) {
+    private void live(StateImpl state, Instant databaseNow) {
         if (!databaseNow.isBefore(state.expiry()) || "DENIED".equals(state.status())) {
             throw denied();
         }
@@ -403,7 +403,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
     }
 
     private <T> Mono<T> locked(UUID caseId, ReproofingBinding binding,
-            BiFunction<State, Instant, Mono<T>> work) {
+            BiFunction<StateImpl, Instant, Mono<T>> work) {
         return transaction(() -> load(caseId, binding, true)
                 .flatMap(state -> now().flatMap(databaseNow -> work.apply(state, databaseNow))));
     }
@@ -417,7 +417,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
                 .map((row, metadata) -> row.get("now", OffsetDateTime.class).toInstant()).one();
     }
 
-    private Mono<State> load(UUID caseId, ReproofingBinding binding, boolean lock) {
+    private Mono<StateImpl> load(UUID caseId, ReproofingBinding binding, boolean lock) {
         validate(binding);
         if (caseId == null) {
             return Mono.error(denied());
@@ -426,7 +426,7 @@ public final class ReproofingServiceImpl implements ReproofingService {
                         + (lock ? " FOR UPDATE" : ""))
                 .bind("id", caseId).fetch().one().switchIfEmpty(Mono.error(denied()))
                 .map(row -> {
-                    State state = new State(row);
+                    StateImpl state = new StateImpl(row);
                     if (!state.binding().equals(binding)) {
                         throw denied();
                     }
@@ -505,10 +505,10 @@ public final class ReproofingServiceImpl implements ReproofingService {
         return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recovery unavailable");
     }
 
-    private final class State {
+    private final class StateImpl {
         private final Map<String, Object> row;
 
-        State(Map<String, Object> row) { this.row = row; }
+        StateImpl(Map<String, Object> row) { this.row = row; }
         String string(String key) { return (String) row.get(key); }
         UUID uuid(String key) { return (UUID) row.get(key); }
         Instant instant(String key) {

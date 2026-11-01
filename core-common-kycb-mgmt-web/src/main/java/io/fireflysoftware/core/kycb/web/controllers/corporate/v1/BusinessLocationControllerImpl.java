@@ -36,10 +36,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
+@RestController("businessLocationController")
 @RequestMapping("/api/v1/corporate/parties/{partyId}/locations")
 @Tag(name = "Business Locations", description = "API for managing business locations")
-public class BusinessLocationController {
+public class BusinessLocationControllerImpl {
 
     @Autowired
     private BusinessLocationService businessLocationService;

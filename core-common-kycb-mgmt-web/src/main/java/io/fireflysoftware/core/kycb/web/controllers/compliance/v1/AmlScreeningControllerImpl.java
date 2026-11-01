@@ -19,8 +19,8 @@ package io.fireflysoftware.core.kycb.web.controllers.compliance.v1;
 
 import org.fireflyframework.core.filters.FilterRequest;
 import org.fireflyframework.core.queries.PaginationResponse;
-import io.fireflysoftware.core.kycb.core.services.aml.v1.AmlMatchService;
-import io.fireflysoftware.core.kycb.interfaces.dtos.aml.v1.AmlMatchDTO;
+import io.fireflysoftware.core.kycb.core.services.aml.v1.AmlScreeningService;
+import io.fireflysoftware.core.kycb.interfaces.dtos.aml.v1.AmlScreeningDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,153 +34,143 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/v1/compliance/parties/{partyId}/aml-screenings/{screeningId}/matches")
-@Tag(name = "AML Matches", description = "API for managing AML screening matches")
-public class AmlMatchController {
+@RestController("amlScreeningController")
+@RequestMapping("/api/v1/compliance/parties/{partyId}/aml-screenings")
+@Tag(name = "AML Screening", description = "API for managing AML screenings")
+public class AmlScreeningControllerImpl {
 
     @Autowired
-    private AmlMatchService amlMatchService;
+    private AmlScreeningService amlScreeningService;
 
     @GetMapping
     @Operation(
-            summary = "List matches",
-            description = "Retrieves all matches for the specified AML screening with filtering capabilities",
+            summary = "List AML screenings",
+            description = "Retrieves all AML screenings for the specified party ID with filtering capabilities",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved AML matches",
+                            description = "Successfully retrieved AML screenings",
                             content = @Content(schema = @Schema(implementation = PaginationResponse.class))
                     )
             }
     )
-    public Mono<ResponseEntity<PaginationResponse<AmlMatchDTO>>> listAmlMatches(
+    public Mono<ResponseEntity<PaginationResponse<AmlScreeningDTO>>> listAmlScreenings(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the screening", required = true)
-            @PathVariable UUID screeningId,
             @Parameter(description = "Filter criteria")
-            @ModelAttribute FilterRequest<AmlMatchDTO> filterRequest
+            @ModelAttribute FilterRequest<AmlScreeningDTO> filterRequest
     ) {
-        // Set screening ID filter
-        AmlMatchDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new AmlMatchDTO();
-        filter.setAmlScreeningId(screeningId);
+        // Set party ID filter
+        AmlScreeningDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new AmlScreeningDTO();
+        filter.setPartyId(partyId);
         filterRequest.setFilters(filter);
 
-        return amlMatchService.findAll(filterRequest)
+        return amlScreeningService.findAll(filterRequest)
                 .map(ResponseEntity::ok);
     }
 
     @PostMapping
     @Operation(
-            summary = "Create AML match",
-            description = "Creates a new AML match for the specified screening",
+            summary = "Create AML screening",
+            description = "Creates a new AML screening for the specified party",
             responses = {
                     @ApiResponse(
                             responseCode = "201",
-                            description = "Successfully created AML match",
-                            content = @Content(schema = @Schema(implementation = AmlMatchDTO.class))
+                            description = "Successfully created AML screening",
+                            content = @Content(schema = @Schema(implementation = AmlScreeningDTO.class))
                     )
             }
     )
-    public Mono<ResponseEntity<AmlMatchDTO>> createAmlMatch(
+    public Mono<ResponseEntity<AmlScreeningDTO>> createAmlScreening(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the screening", required = true)
-            @PathVariable UUID screeningId,
-            @Parameter(description = "AML match data", required = true)
-            @RequestBody AmlMatchDTO amlMatchDTO
+            @Parameter(description = "AML screening data", required = true)
+            @RequestBody AmlScreeningDTO amlScreeningDTO
     ) {
-        amlMatchDTO.setAmlScreeningId(screeningId);
-        return amlMatchService.create(amlMatchDTO)
+        amlScreeningDTO.setPartyId(partyId);
+        return amlScreeningService.create(amlScreeningDTO)
                 .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
     }
 
-    @GetMapping("/{matchId}")
+    @GetMapping("/{screeningId}")
     @Operation(
-            summary = "Get specific match",
-            description = "Retrieves a specific AML match by its ID",
+            summary = "Get screening details",
+            description = "Retrieves a specific AML screening by its ID",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved AML match",
-                            content = @Content(schema = @Schema(implementation = AmlMatchDTO.class))
+                            description = "Successfully retrieved AML screening",
+                            content = @Content(schema = @Schema(implementation = AmlScreeningDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "AML match not found"
+                            description = "AML screening not found"
                     )
             }
     )
-    public Mono<ResponseEntity<AmlMatchDTO>> getAmlMatch(
+    public Mono<ResponseEntity<AmlScreeningDTO>> getAmlScreening(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "ID of the screening", required = true)
-            @PathVariable UUID screeningId,
-            @Parameter(description = "ID of the match", required = true)
-            @PathVariable UUID matchId
+            @PathVariable UUID screeningId
     ) {
-        return amlMatchService.getById(matchId)
+        return amlScreeningService.getById(screeningId)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PatchMapping("/{matchId}")
+    @PatchMapping("/{screeningId}")
     @Operation(
-            summary = "Update AML match",
-            description = "Updates an existing AML match",
+            summary = "Update AML screening",
+            description = "Updates an existing AML screening",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully updated AML match",
-                            content = @Content(schema = @Schema(implementation = AmlMatchDTO.class))
+                            description = "Successfully updated AML screening",
+                            content = @Content(schema = @Schema(implementation = AmlScreeningDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "AML match not found"
+                            description = "AML screening not found"
                     )
             }
     )
-    public Mono<ResponseEntity<AmlMatchDTO>> updateAmlMatch(
+    public Mono<ResponseEntity<AmlScreeningDTO>> updateAmlScreening(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "ID of the screening", required = true)
             @PathVariable UUID screeningId,
-            @Parameter(description = "ID of the match", required = true)
-            @PathVariable UUID matchId,
-            @Parameter(description = "Updated AML match data", required = true)
-            @RequestBody AmlMatchDTO amlMatchDTO
+            @Parameter(description = "Updated AML screening data", required = true)
+            @RequestBody AmlScreeningDTO amlScreeningDTO
     ) {
-        amlMatchDTO.setAmlScreeningId(screeningId);
-        return amlMatchService.update(matchId, amlMatchDTO)
+        amlScreeningDTO.setPartyId(partyId);
+        return amlScreeningService.update(screeningId, amlScreeningDTO)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @DeleteMapping("/{matchId}")
+    @DeleteMapping("/{screeningId}")
     @Operation(
-            summary = "Delete AML match",
-            description = "Deletes an AML match",
+            summary = "Delete AML screening",
+            description = "Deletes an AML screening",
             responses = {
                     @ApiResponse(
                             responseCode = "204",
-                            description = "Successfully deleted AML match"
+                            description = "Successfully deleted AML screening"
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "AML match not found"
+                            description = "AML screening not found"
                     )
             }
     )
-    public Mono<ResponseEntity<Void>> deleteAmlMatch(
+    public Mono<ResponseEntity<Void>> deleteAmlScreening(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "ID of the screening", required = true)
-            @PathVariable UUID screeningId,
-            @Parameter(description = "ID of the match", required = true)
-            @PathVariable UUID matchId
+            @PathVariable UUID screeningId
     ) {
-        return amlMatchService.delete(matchId)
+        return amlScreeningService.delete(screeningId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 }

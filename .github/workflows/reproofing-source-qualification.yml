@@ -21,6 +21,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - name: Guard owned implementation names and preserved bean registrations
+        run: |
+          python3 -m unittest discover -s tooling -p test_implementation_names.py
+          python3 tooling/check_implementation_names.py
       - run: python3 tooling/prepare_source_fixture.py
       - name: Installer-owned hosted PostgreSQL
         run: python3 tooling/reproofing_postgres_fixture.py

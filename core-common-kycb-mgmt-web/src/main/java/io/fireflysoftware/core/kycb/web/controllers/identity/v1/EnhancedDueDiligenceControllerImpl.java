@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
+@RestController("enhancedDueDiligenceController")
 @RequestMapping("/api/v1/identity/parties/{partyId}/kyc/{verificationId}/edd")
 @Tag(name = "Enhanced Due Diligence", description = "API for managing enhanced due diligence processes")
-public class EnhancedDueDiligenceController {
+public class EnhancedDueDiligenceControllerImpl {
 
     @Autowired
     private EnhancedDueDiligenceService enhancedDueDiligenceService;

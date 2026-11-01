@@ -30,10 +30,10 @@ class ReproofingExistingSecurityTest {
     @EnableWebFlux
     @ComponentScan(basePackageClasses=ReproofingSecurityConfigurationImpl.class)
     static class ProductConfiguration {
-        @Bean Probe probe(){return new Probe();}
+        @Bean ProbeImpl probe(){return new ProbeImpl();}
         @Bean ReactiveJwtDecoder fixtureDecoder(){return token->Mono.error(new BadJwtException("Fixture refuses bearer"));}
     }
-    @RestController static class Probe {
+    @RestController("reproofingExistingSecurityTest.Probe") static class ProbeImpl {
         @GetMapping("/api/existing") String existing(){return "unrelated";}
     }
     @Test void optionalConfiguredFrameworkPolicyCannotSilentlyBackOff(){

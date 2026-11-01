@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
+@RestController("industryRiskController")
 @RequestMapping("/api/v1/compliance/industry-risks")
 @Tag(name = "Industry Risks", description = "API for managing industry risk profiles")
-public class IndustryRiskController {
+public class IndustryRiskControllerImpl {
 
     @Autowired
     private IndustryRiskService industryRiskService;

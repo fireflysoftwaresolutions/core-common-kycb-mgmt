@@ -19,8 +19,8 @@ package io.fireflysoftware.core.kycb.web.controllers.identity.v1;
 
 import org.fireflyframework.core.filters.FilterRequest;
 import org.fireflyframework.core.queries.PaginationResponse;
-import io.fireflysoftware.core.kycb.core.services.kyb.v1.KybVerificationService;
-import io.fireflysoftware.core.kycb.interfaces.dtos.kyb.v1.KybVerificationDTO;
+import io.fireflysoftware.core.kycb.core.services.kyc.v1.KycVerificationService;
+import io.fireflysoftware.core.kycb.interfaces.dtos.kyc.v1.KycVerificationDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,64 +34,64 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/api/v1/identity/parties/{partyId}/kyb")
-@Tag(name = "KYB Verification", description = "API for managing KYB verifications")
-public class KybVerificationController {
+@RestController("kycVerificationController")
+@RequestMapping("/api/v1/identity/parties/{partyId}/kyc")
+@Tag(name = "KYC Verification", description = "API for managing KYC verifications")
+public class KycVerificationControllerImpl {
 
     @Autowired
-    private KybVerificationService kybVerificationService;
+    private KycVerificationService kycVerificationService;
 
     @GetMapping
     @Operation(
-            summary = "List KYB verifications for a party",
-            description = "Retrieves all KYB verifications for the specified party ID with optional filtering",
+            summary = "List KYC verifications for a party",
+            description = "Retrieves all KYC verifications for the specified party ID with optional filtering",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved KYB verifications",
+                            description = "Successfully retrieved KYC verifications",
                             content = @Content(schema = @Schema(implementation = PaginationResponse.class))
                     )
             }
     )
-    public Mono<ResponseEntity<PaginationResponse<KybVerificationDTO>>> listKybVerifications(
+    public Mono<ResponseEntity<PaginationResponse<KycVerificationDTO>>> listKycVerifications(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @ModelAttribute FilterRequest<KybVerificationDTO> filterRequest
+            @ModelAttribute FilterRequest<KycVerificationDTO> filterRequest
     ) {
-
         // Create a filter with the party ID
-        KybVerificationDTO filter = new KybVerificationDTO();
+        KycVerificationDTO filter = new KycVerificationDTO();
         filter.setPartyId(partyId);
         filterRequest.setFilters(filter);
 
-        return kybVerificationService.findAll(filterRequest)
+        return kycVerificationService.findAll(filterRequest)
                 .map(ResponseEntity::ok);
     }
 
+
     @GetMapping("/{verificationId}")
     @Operation(
-            summary = "Get specific KYB verification",
-            description = "Retrieves a specific KYB verification by its ID",
+            summary = "Get specific KYC verification",
+            description = "Retrieves a specific KYC verification by its ID",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved KYB verification",
-                            content = @Content(schema = @Schema(implementation = KybVerificationDTO.class))
+                            description = "Successfully retrieved KYC verification",
+                            content = @Content(schema = @Schema(implementation = KycVerificationDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "KYB verification not found"
+                            description = "KYC verification not found"
                     )
             }
     )
-    public Mono<ResponseEntity<KybVerificationDTO>> getKybVerification(
+    public Mono<ResponseEntity<KycVerificationDTO>> getKycVerification(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "ID of the verification", required = true)
             @PathVariable UUID verificationId
     ) {
-        return kybVerificationService.getById(verificationId)
+        return kycVerificationService.getById(verificationId)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -99,79 +99,79 @@ public class KybVerificationController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
-            summary = "Start new KYB verification",
-            description = "Creates a new KYB verification for the specified party",
+            summary = "Start new KYC verification",
+            description = "Creates a new KYC verification for the specified party",
             responses = {
                     @ApiResponse(
                             responseCode = "201",
-                            description = "Successfully created KYB verification",
-                            content = @Content(schema = @Schema(implementation = KybVerificationDTO.class))
+                            description = "Successfully created KYC verification",
+                            content = @Content(schema = @Schema(implementation = KycVerificationDTO.class))
                     )
             }
     )
-    public Mono<ResponseEntity<KybVerificationDTO>> createKybVerification(
+    public Mono<ResponseEntity<KycVerificationDTO>> createKycVerification(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "KYB verification data", required = true)
-            @RequestBody KybVerificationDTO kybVerificationDTO
+            @Parameter(description = "KYC verification data", required = true)
+            @RequestBody KycVerificationDTO kycVerificationDTO
     ) {
-        kybVerificationDTO.setPartyId(partyId);
-        return kybVerificationService.create(kybVerificationDTO)
+        kycVerificationDTO.setPartyId(partyId);
+        return kycVerificationService.create(kycVerificationDTO)
                 .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
     }
 
     @PatchMapping("/{verificationId}")
     @Operation(
-            summary = "Update KYB verification",
-            description = "Updates an existing KYB verification",
+            summary = "Update KYC verification",
+            description = "Updates an existing KYC verification",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully updated KYB verification",
-                            content = @Content(schema = @Schema(implementation = KybVerificationDTO.class))
+                            description = "Successfully updated KYC verification",
+                            content = @Content(schema = @Schema(implementation = KycVerificationDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "KYB verification not found"
+                            description = "KYC verification not found"
                     )
             }
     )
-    public Mono<ResponseEntity<KybVerificationDTO>> updateKybVerification(
+    public Mono<ResponseEntity<KycVerificationDTO>> updateKycVerification(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "ID of the verification", required = true)
             @PathVariable UUID verificationId,
-            @Parameter(description = "Updated KYB verification data", required = true)
-            @RequestBody KybVerificationDTO kybVerificationDTO
+            @Parameter(description = "Updated KYC verification data", required = true)
+            @RequestBody KycVerificationDTO kycVerificationDTO
     ) {
-        kybVerificationDTO.setPartyId(partyId);
-        return kybVerificationService.update(verificationId, kybVerificationDTO)
+        kycVerificationDTO.setPartyId(partyId);
+        return kycVerificationService.update(verificationId, kycVerificationDTO)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{verificationId}")
     @Operation(
-            summary = "Delete KYB verification",
-            description = "Deletes a KYB verification",
+            summary = "Delete KYC verification",
+            description = "Deletes a KYC verification",
             responses = {
                     @ApiResponse(
                             responseCode = "204",
-                            description = "Successfully deleted KYB verification"
+                            description = "Successfully deleted KYC verification"
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "KYB verification not found"
+                            description = "KYC verification not found"
                     )
             }
     )
-    public Mono<ResponseEntity<Void>> deleteKybVerification(
+    public Mono<ResponseEntity<Void>> deleteKycVerification(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "ID of the verification", required = true)
             @PathVariable UUID verificationId
     ) {
-        return kybVerificationService.delete(verificationId)
+        return kycVerificationService.delete(verificationId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 }
