@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.*;
 
 class ReproofingNotificationHttpTest {
     @TempDir Path temp;
+    final AtomicReference<CountDownLatch> responseReceipts=new AtomicReference<>(new CountDownLatch(2));
     void openssl(String... args) throws Exception {
         var command = new ArrayList<String>(); command.add("openssl"); command.addAll(List.of(args));
         var process = new ProcessBuilder(command).directory(temp.toFile()).redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start();
@@ -28,8 +29,16 @@ class ReproofingNotificationHttpTest {
             ReproofingNotificationHttpProbeImpl.class.getName(),base,mode);
         var output=temp.resolve("probe-output");
         var process=new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(output.toFile()).start();
-        assertTrue(process.waitFor(15,TimeUnit.SECONDS));
-        assertEquals(0,process.exitValue(),()->{try{return Files.readString(output);}catch(Exception e){return "Probe unavailable";}});
+        try {
+            assertTrue(process.waitFor(45,TimeUnit.SECONDS), "Owned HTTPS probe exceeded its bounded wait");
+            assertEquals(0,process.exitValue(),()->{try{return Files.readString(output);}catch(Exception e){return "Probe unavailable";}});
+            assertTrue(responseReceipts.get().await(5,TimeUnit.SECONDS), "Fixture response writes were not observed");
+        } finally {
+            if (process.isAlive()) {
+                process.destroy();
+                if (!process.waitFor(2,TimeUnit.SECONDS)) {process.destroyForcibly();assertTrue(process.waitFor(2,TimeUnit.SECONDS), "Owned probe did not terminate");}
+            }
+        }
     }
     String valid() {return "{\"observedAt\":\""+Instant.now()+"\",\"pending\":0,\"sending\":0,\"retrying\":0,\"delivered\":2,\"failed\":0,\"invalid\":0,\"due\":0,\"oldestDueDelaySeconds\":0}";}
     @Test void genuineTlsWireUsesLimitOneAndRejectsRedirectsOversizeMalformedAndSlowResponses() throws Exception {
@@ -43,32 +52,40 @@ class ReproofingNotificationHttpTest {
         try(var output=Files.newOutputStream(temp.resolve("trust.p12"))){trust.store(output,"fixture".toCharArray());}
         var server=HttpsServer.create(new java.net.InetSocketAddress("localhost",0),0);
         server.setHttpsConfigurator(new HttpsConfigurator(ssl));
-        var response=new AtomicReference<>(valid());var code=new AtomicInteger(200);var delay=new AtomicLong();
-        var invalidRequest=new AtomicBoolean();var redirected=new AtomicInteger();var calls=new AtomicInteger();
+        var response=new AtomicReference<>(valid());var code=new AtomicInteger(200);var hold=new AtomicBoolean();var release=new CountDownLatch(1);
+        var invalidRequest=new AtomicBoolean();var redirected=new AtomicInteger();var calls=new AtomicInteger();var writes=new AtomicInteger();
         server.createContext("/realms/test/firefly-recovery/lost-credentials/rpc",exchange->{
             try {
                 calls.incrementAndGet();String body=new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8);
                 String basic="Basic "+Base64.getEncoder().encodeToString(("notification:notification-fixture-"+"x".repeat(40)).getBytes(StandardCharsets.UTF_8));
                 boolean dispatch=exchange.getRequestURI().getPath().endsWith("/dispatch");
                 if(!exchange.getRequestMethod().equals("POST") || !basic.equals(exchange.getRequestHeaders().getFirst("Authorization")) || !(dispatch?body.equals("{\"limit\":1}"):body.equals("{}"))) invalidRequest.set(true);
-                if(delay.get()>0) Thread.sleep(delay.get());
+                if(!dispatch && hold.get() && !release.await(10,TimeUnit.SECONDS)) throw new IllegalStateException("Fixture response gate expired");
                 byte[] payload=(dispatch?"{\"processed\":1}":response.get()).getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type","application/json");
                 exchange.getResponseHeaders().set("Location","https://localhost:"+server.getAddress().getPort()+"/redirected");
-                exchange.sendResponseHeaders(code.get(),payload.length);exchange.getResponseBody().write(payload);
+                exchange.sendResponseHeaders(dispatch?200:code.get(),payload.length);exchange.getResponseBody().write(payload);writes.incrementAndGet();responseReceipts.get().countDown();exchange.getResponseBody().close();
             } catch(Exception ignored) {} finally {exchange.close();}
         });
         server.createContext("/redirected",exchange->{redirected.incrementAndGet();exchange.sendResponseHeaders(500,-1);exchange.close();});
         server.start();
         try {
             String base="https://localhost:"+server.getAddress().getPort()+"/realms/test/firefly-recovery/lost-credentials/rpc";
-            probe(base,"success"); assertFalse(invalidRequest.get()); assertEquals(2,calls.get());
-            for(String malformed:new String[]{valid().replace("\"pending\":0","\"pending\":-1"),valid().replace("\"pending\":0","\"pending\":0,\"private-provider-detail\":1"),valid().replace("\"pending\":0","\"pending\":0,\"pending\":0"),valid()+" {}",valid().replace("\"pending\":0","\"pending\":null"),"private-provider-detail".repeat(2000)}) {
-                response.set(malformed);probe(base,"reject");
+            probe(base,"success"); assertFalse(invalidRequest.get()); assertEquals(2,calls.get());assertEquals(2,writes.get());
+            for(String malformed:new String[]{valid().replace("\"pending\":0","\"pending\":-1"),valid().replace("\"pending\":0","\"pending\":0,\"private-provider-detail\":1"),valid().replace("\"pending\":0","\"pending\":0,\"pending\":0"),valid()+" {}",valid().replace("\"pending\":0","\"pending\":null")}) {
+                int received=calls.get(),sent=writes.get();
+                responseReceipts.set(new CountDownLatch(2));response.set(malformed);probe(base,"invalid");
+                assertEquals(received+2,calls.get());assertEquals(sent+2,writes.get());
             }
-            response.set(valid());code.set(302);probe(base,"reject");assertEquals(0,redirected.get());
-            code.set(503);response.set("private-provider-detail");probe(base,"reject");
-            code.set(200);response.set(valid());delay.set(1500);probe(base,"reject");
-        } finally {server.stop(0);}
+            for(int status:new int[]{200,302,503}) {
+                int received=calls.get(),sent=writes.get();
+                responseReceipts.set(new CountDownLatch(2));code.set(status);response.set(status==200?"x".repeat(32769):valid());probe(base,"dependency");
+                assertEquals(received+2,calls.get());assertEquals(sent+2,writes.get());
+            }
+            assertEquals(0,redirected.get());
+            int received=calls.get(),sent=writes.get();
+            responseReceipts.set(new CountDownLatch(1));code.set(200);response.set(valid());hold.set(true);probe(base,"timeout");
+            assertEquals(received+2,calls.get());assertEquals(sent+1,writes.get());assertFalse(invalidRequest.get());
+        } finally {release.countDown();server.stop(0);}
     }
 }
