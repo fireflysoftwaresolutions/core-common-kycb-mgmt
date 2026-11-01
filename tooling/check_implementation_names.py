@@ -11,6 +11,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIGURATIONS = {
+    ('core-common-kycb-mgmt-web/src/test/java/io/fireflysoftware/core/kycb/web/reproofing/ReproofingNotificationMetricsHttpTest.java', 'MetricsHttpConfiguration'),
     ('core-common-kycb-mgmt-web/src/main/java/io/fireflysoftware/core/kycb/web/KycbApplication.java', 'KycbApplication'),
     ('core-common-kycb-mgmt-web/src/main/java/io/fireflysoftware/core/kycb/web/config/CodecLimitsConfig.java', 'CodecLimitsConfig'),
     ('core-common-kycb-mgmt-web/src/test/java/io/fireflysoftware/core/kycb/web/openapi/OpenApiGenApplication.java', 'OpenApiGenApplication'),
