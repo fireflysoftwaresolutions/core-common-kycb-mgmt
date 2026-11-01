@@ -15,7 +15,7 @@
  */
 
 
-package io.fireflysoftware.core.kycb.web.controllers.identity.v1;
+package io.fireflysoftware.core.kycb.web.controllers.document.v1;
 
 import org.fireflyframework.core.filters.FilterRequest;
 import org.fireflyframework.core.queries.PaginationResponse;
@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController("kycVerificationDocumentController")
-@RequestMapping("/api/v1/identity/parties/{partyId}/kyc/{verificationId}/documents")
-@Tag(name = "KYC Verification Documents", description = "API for managing KYC verification documents")
-public class KycVerificationDocumentControllerImpl {
+@RestController
+@RequestMapping("/api/v1/documents/verification")
+@Tag(name = "Verification Documents", description = "API for managing verification documents")
+public class VerificationDocumentController {
 
     @Autowired
     private VerificationDocumentService verificationDocumentService;
@@ -55,18 +55,9 @@ public class KycVerificationDocumentControllerImpl {
             }
     )
     public Mono<ResponseEntity<PaginationResponse<VerificationDocumentDTO>>> listVerificationDocuments(
-            @Parameter(description = "ID of the party", required = true)
-            @PathVariable UUID partyId,
-            @Parameter(description = "ID of the verification", required = true)
-            @PathVariable UUID verificationId,
             @Parameter(description = "Filter criteria")
             @ModelAttribute FilterRequest<VerificationDocumentDTO> filterRequest
     ) {
-        // Set verification ID filter
-        VerificationDocumentDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new VerificationDocumentDTO();
-        filter.setKycVerificationId(verificationId);
-        filterRequest.setFilters(filter);
-
         return verificationDocumentService.findAll(filterRequest)
                 .map(ResponseEntity::ok);
     }
@@ -74,32 +65,27 @@ public class KycVerificationDocumentControllerImpl {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
-            summary = "Add verification document",
-            description = "Adds a new verification document to the specified KYC verification",
+            summary = "Create verification document",
+            description = "Creates a new verification document",
             responses = {
                     @ApiResponse(
                             responseCode = "201",
-                            description = "Successfully added verification document",
+                            description = "Successfully created verification document",
                             content = @Content(schema = @Schema(implementation = VerificationDocumentDTO.class))
                     )
             }
     )
-    public Mono<ResponseEntity<VerificationDocumentDTO>> addVerificationDocument(
-            @Parameter(description = "ID of the party", required = true)
-            @PathVariable UUID partyId,
-            @Parameter(description = "ID of the verification", required = true)
-            @PathVariable UUID verificationId,
+    public Mono<ResponseEntity<VerificationDocumentDTO>> createVerificationDocument(
             @Parameter(description = "Verification document data", required = true)
             @RequestBody VerificationDocumentDTO verificationDocumentDTO
     ) {
-        verificationDocumentDTO.setKycVerificationId(verificationId);
         return verificationDocumentService.create(verificationDocumentDTO)
                 .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
     }
 
     @GetMapping("/{documentId}")
     @Operation(
-            summary = "Get specific verification document",
+            summary = "Get verification document",
             description = "Retrieves a specific verification document by its ID",
             responses = {
                     @ApiResponse(
@@ -114,10 +100,6 @@ public class KycVerificationDocumentControllerImpl {
             }
     )
     public Mono<ResponseEntity<VerificationDocumentDTO>> getVerificationDocument(
-            @Parameter(description = "ID of the party", required = true)
-            @PathVariable UUID partyId,
-            @Parameter(description = "ID of the verification", required = true)
-            @PathVariable UUID verificationId,
             @Parameter(description = "ID of the document", required = true)
             @PathVariable UUID documentId
     ) {
@@ -143,16 +125,11 @@ public class KycVerificationDocumentControllerImpl {
             }
     )
     public Mono<ResponseEntity<VerificationDocumentDTO>> updateVerificationDocument(
-            @Parameter(description = "ID of the party", required = true)
-            @PathVariable UUID partyId,
-            @Parameter(description = "ID of the verification", required = true)
-            @PathVariable UUID verificationId,
             @Parameter(description = "ID of the document", required = true)
             @PathVariable UUID documentId,
             @Parameter(description = "Updated verification document data", required = true)
             @RequestBody VerificationDocumentDTO verificationDocumentDTO
     ) {
-        verificationDocumentDTO.setKycVerificationId(verificationId);
         return verificationDocumentService.update(documentId, verificationDocumentDTO)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
@@ -174,10 +151,6 @@ public class KycVerificationDocumentControllerImpl {
             }
     )
     public Mono<ResponseEntity<Void>> deleteVerificationDocument(
-            @Parameter(description = "ID of the party", required = true)
-            @PathVariable UUID partyId,
-            @Parameter(description = "ID of the verification", required = true)
-            @PathVariable UUID verificationId,
             @Parameter(description = "ID of the document", required = true)
             @PathVariable UUID documentId
     ) {

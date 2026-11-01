@@ -15,12 +15,12 @@
  */
 
 
-package io.fireflysoftware.core.kycb.web.controllers.activity.v1;
+package io.fireflysoftware.core.kycb.web.controllers.compliance.v1;
 
 import org.fireflyframework.core.filters.FilterRequest;
 import org.fireflyframework.core.queries.PaginationResponse;
-import io.fireflysoftware.core.kycb.core.services.source.v1.SourceOfFundsService;
-import io.fireflysoftware.core.kycb.interfaces.dtos.source.v1.SourceOfFundsDTO;
+import io.fireflysoftware.core.kycb.core.services.risk.v1.RiskAssessmentService;
+import io.fireflysoftware.core.kycb.interfaces.dtos.risk.v1.RiskAssessmentDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,145 +34,144 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController("sourceOfFundsController")
-@RequestMapping("/api/v1/activity/parties/{partyId}/sources-of-funds")
-@Tag(name = "Source of Funds", description = "API for managing sources of funds")
-public class SourceOfFundsControllerImpl {
+@RestController
+@RequestMapping("/api/v1/compliance/parties/{partyId}/risk-assessments")
+@Tag(name = "Risk Assessment", description = "API for managing risk assessments")
+public class RiskAssessmentController {
 
     @Autowired
-    private SourceOfFundsService sourceOfFundsService;
+    private RiskAssessmentService riskAssessmentService;
 
     @GetMapping
     @Operation(
-            summary = "List sources of funds",
-            description = "Retrieves all sources of funds for the specified party",
+            summary = "List risk assessments",
+            description = "Retrieves all risk assessments for the specified party ID with filtering capabilities",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved sources of funds",
+                            description = "Successfully retrieved risk assessments",
                             content = @Content(schema = @Schema(implementation = PaginationResponse.class))
                     )
             }
     )
-    public Mono<ResponseEntity<PaginationResponse<SourceOfFundsDTO>>> listSourcesOfFunds(
+    public Mono<ResponseEntity<PaginationResponse<RiskAssessmentDTO>>> listRiskAssessments(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "Filter criteria")
-            @ModelAttribute FilterRequest<SourceOfFundsDTO> filterRequest
+            @ModelAttribute FilterRequest<RiskAssessmentDTO> filterRequest
     ) {
         // Set party ID filter
-        SourceOfFundsDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new SourceOfFundsDTO();
+        RiskAssessmentDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new RiskAssessmentDTO();
         filter.setPartyId(partyId);
         filterRequest.setFilters(filter);
 
-        return sourceOfFundsService.findAll(filterRequest)
+        return riskAssessmentService.findAll(filterRequest)
                 .map(ResponseEntity::ok);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
-            summary = "Add source of funds",
-            description = "Adds a new source of funds for the specified party",
+            summary = "Create new risk assessment",
+            description = "Creates a new risk assessment for the specified party",
             responses = {
                     @ApiResponse(
                             responseCode = "201",
-                            description = "Successfully added source of funds",
-                            content = @Content(schema = @Schema(implementation = SourceOfFundsDTO.class))
+                            description = "Successfully created risk assessment",
+                            content = @Content(schema = @Schema(implementation = RiskAssessmentDTO.class))
                     )
             }
     )
-    public Mono<ResponseEntity<SourceOfFundsDTO>> addSourceOfFunds(
+    public Mono<ResponseEntity<RiskAssessmentDTO>> createRiskAssessment(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "Source of funds data", required = true)
-            @RequestBody SourceOfFundsDTO sourceOfFundsDTO
+            @Parameter(description = "Risk assessment data", required = true)
+            @RequestBody RiskAssessmentDTO riskAssessmentDTO
     ) {
-        sourceOfFundsDTO.setPartyId(partyId);
-        return sourceOfFundsService.create(sourceOfFundsDTO)
+        riskAssessmentDTO.setPartyId(partyId);
+        return riskAssessmentService.create(riskAssessmentDTO)
                 .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
     }
 
-    @GetMapping("/{sourceId}")
+    @GetMapping("/{assessmentId}")
     @Operation(
-            summary = "Get specific source",
-            description = "Retrieves a specific source of funds by its ID",
+            summary = "Get specific assessment",
+            description = "Retrieves a specific risk assessment by its ID",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved source of funds",
-                            content = @Content(schema = @Schema(implementation = SourceOfFundsDTO.class))
+                            description = "Successfully retrieved risk assessment",
+                            content = @Content(schema = @Schema(implementation = RiskAssessmentDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Source of funds not found"
+                            description = "Risk assessment not found"
                     )
             }
     )
-    public Mono<ResponseEntity<SourceOfFundsDTO>> getSourceOfFunds(
+    public Mono<ResponseEntity<RiskAssessmentDTO>> getRiskAssessment(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the source", required = true)
-            @PathVariable UUID sourceId
+            @Parameter(description = "ID of the assessment", required = true)
+            @PathVariable UUID assessmentId
     ) {
-        return sourceOfFundsService.getById(sourceId)
+        return riskAssessmentService.getById(assessmentId)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PatchMapping("/{sourceId}")
+    @PatchMapping("/{assessmentId}")
     @Operation(
-            summary = "Update source of funds",
-            description = "Updates an existing source of funds",
+            summary = "Update risk assessment",
+            description = "Updates an existing risk assessment",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully updated source of funds",
-                            content = @Content(schema = @Schema(implementation = SourceOfFundsDTO.class))
+                            description = "Successfully updated risk assessment",
+                            content = @Content(schema = @Schema(implementation = RiskAssessmentDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Source of funds not found"
+                            description = "Risk assessment not found"
                     )
             }
     )
-    public Mono<ResponseEntity<SourceOfFundsDTO>> updateSourceOfFunds(
+    public Mono<ResponseEntity<RiskAssessmentDTO>> updateRiskAssessment(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the source", required = true)
-            @PathVariable UUID sourceId,
-            @Parameter(description = "Updated source of funds data", required = true)
-            @RequestBody SourceOfFundsDTO sourceOfFundsDTO
+            @Parameter(description = "ID of the assessment", required = true)
+            @PathVariable UUID assessmentId,
+            @Parameter(description = "Updated risk assessment data", required = true)
+            @RequestBody RiskAssessmentDTO riskAssessmentDTO
     ) {
-        sourceOfFundsDTO.setPartyId(partyId);
-        return sourceOfFundsService.update(sourceId, sourceOfFundsDTO)
+        riskAssessmentDTO.setPartyId(partyId);
+        return riskAssessmentService.update(assessmentId, riskAssessmentDTO)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @DeleteMapping("/{sourceId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @DeleteMapping("/{assessmentId}")
     @Operation(
-            summary = "Delete source of funds",
-            description = "Deletes a source of funds",
+            summary = "Delete risk assessment",
+            description = "Deletes a risk assessment",
             responses = {
                     @ApiResponse(
                             responseCode = "204",
-                            description = "Successfully deleted source of funds"
+                            description = "Successfully deleted risk assessment"
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Source of funds not found"
+                            description = "Risk assessment not found"
                     )
             }
     )
-    public Mono<ResponseEntity<Void>> deleteSourceOfFunds(
+    public Mono<ResponseEntity<Void>> deleteRiskAssessment(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the source", required = true)
-            @PathVariable UUID sourceId
+            @Parameter(description = "ID of the assessment", required = true)
+            @PathVariable UUID assessmentId
     ) {
-        return sourceOfFundsService.delete(sourceId)
+        return riskAssessmentService.delete(assessmentId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 }

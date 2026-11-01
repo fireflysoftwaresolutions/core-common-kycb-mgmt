@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController("corporateDocumentController")
+@RestController
 @RequestMapping("/api/v1/documents/corporate")
 @Tag(name = "Corporate Documents", description = "API for managing corporate documents")
-public class CorporateDocumentControllerImpl {
+public class CorporateDocumentController {
 
     @Autowired
     private CorporateDocumentService corporateDocumentService;

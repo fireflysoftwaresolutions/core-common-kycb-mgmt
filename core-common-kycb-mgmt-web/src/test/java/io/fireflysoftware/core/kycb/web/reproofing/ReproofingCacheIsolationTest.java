@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 class ReproofingCacheIsolationTest {
-    @RestController("reproofingCacheIsolationTest.Probe")
-    static class ProbeImpl {
+    @RestController
+    static class Probe {
         int calls;
 
         @PostMapping("/api/v1/identity-recovery/cases")
@@ -27,8 +27,20 @@ class ReproofingCacheIsolationTest {
 
     @Test
     void genericCacheHeaderNeverBypassesFreshRecoveryDispatch() {
-        var probe = new ProbeImpl();
-        IdempotencyCache cache = new RefusingCacheImpl();
+        var probe = new Probe();
+        IdempotencyCache cache =
+                new IdempotencyCache() {
+                    public Mono<CachedResponse> get(String key) {
+                        return Mono.error(
+                                new AssertionError(
+                                        "Recovery must never read generic cached authority"));
+                    }
+
+                    public Mono<Void> put(String key, CachedResponse value) {
+                        return Mono.error(
+                                new AssertionError("Recovery must never cache authority"));
+                    }
+                };
         var properties = new IdempotencyProperties();
         properties.setNamespace("core-reproofing-fixture");
         var client =
@@ -49,16 +61,5 @@ class ReproofingCacheIsolationTest {
                     .expectStatus()
                     .isOk();
         assertEquals(2, probe.calls);
-    }
-
-    private static final class RefusingCacheImpl implements IdempotencyCache {
-        public Mono<CachedResponse> get(String key) {
-            return Mono.error(
-                    new AssertionError("Recovery must never read generic cached authority"));
-        }
-
-        public Mono<Void> put(String key, CachedResponse value) {
-            return Mono.error(new AssertionError("Recovery must never cache authority"));
-        }
     }
 }

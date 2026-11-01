@@ -19,8 +19,8 @@ package io.fireflysoftware.core.kycb.web.controllers.activity.v1;
 
 import org.fireflyframework.core.filters.FilterRequest;
 import org.fireflyframework.core.queries.PaginationResponse;
-import io.fireflysoftware.core.kycb.core.services.expected.v1.ExpectedActivityService;
-import io.fireflysoftware.core.kycb.interfaces.dtos.expected.v1.ExpectedActivityDTO;
+import io.fireflysoftware.core.kycb.core.services.source.v1.SourceOfFundsService;
+import io.fireflysoftware.core.kycb.interfaces.dtos.source.v1.SourceOfFundsDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,143 +34,145 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController("expectedActivityController")
-@RequestMapping("/api/v1/activity/parties/{partyId}/expected-activities")
-@Tag(name = "Expected Activity", description = "API for managing expected activities")
-public class ExpectedActivityControllerImpl {
+@RestController
+@RequestMapping("/api/v1/activity/parties/{partyId}/sources-of-funds")
+@Tag(name = "Source of Funds", description = "API for managing sources of funds")
+public class SourceOfFundsController {
 
     @Autowired
-    private ExpectedActivityService expectedActivityService;
+    private SourceOfFundsService sourceOfFundsService;
 
     @GetMapping
     @Operation(
-            summary = "List expected activities",
-            description = "Retrieves all expected activities for the specified party with filtering capabilities",
+            summary = "List sources of funds",
+            description = "Retrieves all sources of funds for the specified party",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved expected activities",
+                            description = "Successfully retrieved sources of funds",
                             content = @Content(schema = @Schema(implementation = PaginationResponse.class))
                     )
             }
     )
-    public Mono<ResponseEntity<PaginationResponse<ExpectedActivityDTO>>> listExpectedActivities(
+    public Mono<ResponseEntity<PaginationResponse<SourceOfFundsDTO>>> listSourcesOfFunds(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
             @Parameter(description = "Filter criteria")
-            @ModelAttribute FilterRequest<ExpectedActivityDTO> filterRequest
+            @ModelAttribute FilterRequest<SourceOfFundsDTO> filterRequest
     ) {
         // Set party ID filter
-        ExpectedActivityDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new ExpectedActivityDTO();
+        SourceOfFundsDTO filter = filterRequest.getFilters() != null ? filterRequest.getFilters() : new SourceOfFundsDTO();
         filter.setPartyId(partyId);
         filterRequest.setFilters(filter);
 
-        return expectedActivityService.findAll(filterRequest)
+        return sourceOfFundsService.findAll(filterRequest)
                 .map(ResponseEntity::ok);
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(
-            summary = "Add expected activity",
-            description = "Adds a new expected activity for the specified party",
+            summary = "Add source of funds",
+            description = "Adds a new source of funds for the specified party",
             responses = {
                     @ApiResponse(
                             responseCode = "201",
-                            description = "Successfully added expected activity",
-                            content = @Content(schema = @Schema(implementation = ExpectedActivityDTO.class))
+                            description = "Successfully added source of funds",
+                            content = @Content(schema = @Schema(implementation = SourceOfFundsDTO.class))
                     )
             }
     )
-    public Mono<ResponseEntity<ExpectedActivityDTO>> addExpectedActivity(
+    public Mono<ResponseEntity<SourceOfFundsDTO>> addSourceOfFunds(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "Expected activity data", required = true)
-            @RequestBody ExpectedActivityDTO expectedActivityDTO
+            @Parameter(description = "Source of funds data", required = true)
+            @RequestBody SourceOfFundsDTO sourceOfFundsDTO
     ) {
-        expectedActivityDTO.setPartyId(partyId);
-        return expectedActivityService.create(expectedActivityDTO)
+        sourceOfFundsDTO.setPartyId(partyId);
+        return sourceOfFundsService.create(sourceOfFundsDTO)
                 .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
     }
 
-    @GetMapping("/{activityId}")
+    @GetMapping("/{sourceId}")
     @Operation(
-            summary = "Get specific expected activity",
-            description = "Retrieves a specific expected activity by its ID",
+            summary = "Get specific source",
+            description = "Retrieves a specific source of funds by its ID",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully retrieved expected activity",
-                            content = @Content(schema = @Schema(implementation = ExpectedActivityDTO.class))
+                            description = "Successfully retrieved source of funds",
+                            content = @Content(schema = @Schema(implementation = SourceOfFundsDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Expected activity not found"
+                            description = "Source of funds not found"
                     )
             }
     )
-    public Mono<ResponseEntity<ExpectedActivityDTO>> getExpectedActivity(
+    public Mono<ResponseEntity<SourceOfFundsDTO>> getSourceOfFunds(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the activity", required = true)
-            @PathVariable UUID activityId
+            @Parameter(description = "ID of the source", required = true)
+            @PathVariable UUID sourceId
     ) {
-        return expectedActivityService.getById(activityId)
+        return sourceOfFundsService.getById(sourceId)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PatchMapping("/{activityId}")
+    @PatchMapping("/{sourceId}")
     @Operation(
-            summary = "Update expected activity",
-            description = "Updates an existing expected activity",
+            summary = "Update source of funds",
+            description = "Updates an existing source of funds",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "Successfully updated expected activity",
-                            content = @Content(schema = @Schema(implementation = ExpectedActivityDTO.class))
+                            description = "Successfully updated source of funds",
+                            content = @Content(schema = @Schema(implementation = SourceOfFundsDTO.class))
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Expected activity not found"
+                            description = "Source of funds not found"
                     )
             }
     )
-    public Mono<ResponseEntity<ExpectedActivityDTO>> updateExpectedActivity(
+    public Mono<ResponseEntity<SourceOfFundsDTO>> updateSourceOfFunds(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the activity", required = true)
-            @PathVariable UUID activityId,
-            @Parameter(description = "Updated expected activity data", required = true)
-            @RequestBody ExpectedActivityDTO expectedActivityDTO
+            @Parameter(description = "ID of the source", required = true)
+            @PathVariable UUID sourceId,
+            @Parameter(description = "Updated source of funds data", required = true)
+            @RequestBody SourceOfFundsDTO sourceOfFundsDTO
     ) {
-        expectedActivityDTO.setPartyId(partyId);
-        return expectedActivityService.update(activityId, expectedActivityDTO)
+        sourceOfFundsDTO.setPartyId(partyId);
+        return sourceOfFundsService.update(sourceId, sourceOfFundsDTO)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @DeleteMapping("/{activityId}")
+    @DeleteMapping("/{sourceId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
-            summary = "Delete expected activity",
-            description = "Deletes an expected activity",
+            summary = "Delete source of funds",
+            description = "Deletes a source of funds",
             responses = {
                     @ApiResponse(
                             responseCode = "204",
-                            description = "Successfully deleted expected activity"
+                            description = "Successfully deleted source of funds"
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Expected activity not found"
+                            description = "Source of funds not found"
                     )
             }
     )
-    public Mono<ResponseEntity<Void>> deleteExpectedActivity(
+    public Mono<ResponseEntity<Void>> deleteSourceOfFunds(
             @Parameter(description = "ID of the party", required = true)
             @PathVariable UUID partyId,
-            @Parameter(description = "ID of the activity", required = true)
-            @PathVariable UUID activityId
+            @Parameter(description = "ID of the source", required = true)
+            @PathVariable UUID sourceId
     ) {
-        return expectedActivityService.delete(activityId)
+        return sourceOfFundsService.delete(sourceId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 }

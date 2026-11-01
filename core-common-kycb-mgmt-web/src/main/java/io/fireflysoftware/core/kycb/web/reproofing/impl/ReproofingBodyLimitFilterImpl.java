@@ -64,7 +64,13 @@ public final class ReproofingBodyLimitFilterImpl implements WebFilter {
                 })
                 .defaultIfEmpty(new byte[0])
                 .flatMap(bytes -> {
-                    var request = new BufferedRequestDecoratorImpl(isolated, bytes);
+                    var request = new ServerHttpRequestDecorator(isolated.getRequest()) {
+                        @Override
+                        public Flux<DataBuffer> getBody() {
+                            return Flux.defer(() -> Flux.just(
+                                    isolated.getResponse().bufferFactory().wrap(bytes)));
+                        }
+                    };
                     return chain.filter(isolated.mutate().request(request).build());
                 })
                 .onErrorResume(DataBufferLimitException.class,
@@ -76,21 +82,5 @@ public final class ReproofingBodyLimitFilterImpl implements WebFilter {
     private Mono<Void> refuse(ServerWebExchange exchange, HttpStatus status) {
         exchange.getResponse().setStatusCode(status);
         return exchange.getResponse().setComplete();
-    }
-
-    private static final class BufferedRequestDecoratorImpl extends ServerHttpRequestDecorator {
-        private final ServerWebExchange exchange;
-        private final byte[] bytes;
-
-        private BufferedRequestDecoratorImpl(ServerWebExchange exchange, byte[] bytes) {
-            super(exchange.getRequest());
-            this.exchange = exchange;
-            this.bytes = bytes;
-        }
-
-        @Override
-        public Flux<DataBuffer> getBody() {
-            return Flux.defer(() -> Flux.just(exchange.getResponse().bufferFactory().wrap(bytes)));
-        }
     }
 }

@@ -19,8 +19,8 @@ class ReproofingSecurityTest {
     @TempDir Path temp;
     static final String ROOT = "/api/v1/identity-recovery/cases";
 
-    @RestController("reproofingSecurityTest.Probe")
-    static class ProbeImpl {
+    @RestController
+    static class Probe {
         AtomicInteger calls = new AtomicInteger();
 
         @RequestMapping("/api/v1/identity-recovery/cases/**")
@@ -32,7 +32,7 @@ class ReproofingSecurityTest {
 
     @Test
     void disabledReceiverRefusesEveryFeatureRouteWithoutConfiguration() {
-        var probe = new ProbeImpl();
+        var probe = new Probe();
         var chain =
                 new ReproofingSecurityConfigurationImpl()
                         .reproofingSecurityWebFilterChain(
@@ -61,7 +61,7 @@ class ReproofingSecurityTest {
                         .withProperty("firefly.reproofing.enabled", "true")
                         .withProperty("firefly.reproofing.receiver.client-id", "domain-workload")
                         .withProperty("firefly.reproofing.receiver.secret-file", secret.toString());
-        var probe = new ProbeImpl();
+        var probe = new Probe();
         var chain =
                 new ReproofingSecurityConfigurationImpl()
                         .reproofingSecurityWebFilterChain(ServerHttpSecurity.http(), env);

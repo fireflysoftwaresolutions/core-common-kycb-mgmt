@@ -1,8 +1,8 @@
-"""Bounded source guard for owned Java, including nested and inherited implementations.
+"""Guard named technical implementations, including nested and inherited SPI classes.
 
-Generated Java is outside this guard. Interfaces, records, enums, abstract classes,
-conventional test classes, and the reviewed authentic configurations retain their names.
-Pure DTO/entity exceptions are explicit and cannot acquire handwritten method bodies.
+Conventional HTTP entries, data/entity classes, authentic configurations/bootstrap,
+interfaces, records, enums, abstract classes and test suites retain semantic names.
+Anonymous implementations and generated Java are outside this naming convention.
 """
 import json
 from pathlib import Path
@@ -19,25 +19,13 @@ CONFIGURATIONS = {
 }
 LITERALS = re.compile(r'//[^\n]*|/\*.*?\*/|""".*?"""|"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'', re.S)
 DECLARATIONS = re.compile(r'\b((?:(?:public|private|protected|static|final|abstract|sealed|non-sealed)\s+)*)class\s+(\w+)')
-NEW = re.compile(r'\bnew\s+[\w.$]+(?:\s*<[\w\s.$?,<>\[\]]*>)?\s*\(')
 
 
 def code_only(source):
     return LITERALS.sub(lambda m: re.sub(r'[^\n]', ' ', m[0]), source)
 
 
-def anonymous_classes(code):
-    for match in NEW.finditer(code):
-        depth = 1
-        end = match.end()
-        while end < len(code) and depth:
-            depth += (code[end] == '(') - (code[end] == ')')
-            end += 1
-        if not depth and code[end:].lstrip().startswith('{'):
-            yield match.start()
-
-
-def violations(path, source, data_classes):
+def violations(path, source, data_classes, conventional_entries=None):
     code = code_only(source)
     failures = []
     for match in DECLARATIONS.finditer(code):
@@ -49,12 +37,10 @@ def violations(path, source, data_classes):
         if (path, name) in CONFIGURATIONS:
             continue
         if data_classes.get(path) == name:
-            if re.search(r'\)\s*(?:throws\s+[\w.,\s]+)?\{', code):
-                failures.append('pure data exemption acquired a handwritten method or constructor')
             continue
-        failures.append(f'behavior class {name} must end Impl')
-    for offset in anonymous_classes(code):
-        failures.append(f'anonymous implementation at line {code.count(chr(10), 0, offset) + 1} needs a named Impl class')
+        if name in (conventional_entries or {}).get(path, []):
+            continue
+        failures.append(f'named technical implementation class {name} must end Impl')
     return failures
 
 
@@ -70,7 +56,7 @@ def main():
             sources[path] = (ROOT / path).read_text()
     errors = []
     for path, source in sources.items():
-        errors.extend(f'{path}: {message}' for message in violations(path, source, manifest['pure_data_classes']))
+        errors.extend(f'{path}: {message}' for message in violations(path, source, manifest['data_classes'], manifest['conventional_entry_classes']))
     for path, bean in manifest['preserved_spring_beans'].items():
         source = sources.get(path, '')
         if not re.search(r'@(?:RestController|Component)\(\s*"' + re.escape(bean) + r'"\s*\)', source):

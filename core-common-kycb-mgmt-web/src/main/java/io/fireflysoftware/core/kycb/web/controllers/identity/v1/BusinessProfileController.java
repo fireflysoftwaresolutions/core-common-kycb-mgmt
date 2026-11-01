@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController("businessProfileController")
+@RestController
 @RequestMapping("/api/v1/identity/parties/{partyId}/business-profile")
 @Tag(name = "Business Profile", description = "API for managing business profiles")
-public class BusinessProfileControllerImpl {
+public class BusinessProfileController {
 
     @Autowired
     private BusinessProfileService businessProfileService;

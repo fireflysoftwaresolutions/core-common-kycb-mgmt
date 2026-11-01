@@ -34,10 +34,10 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
-@RestController("powerOfAttorneyController")
+@RestController
 @RequestMapping("/api/v1/documents/powers-of-attorney")
 @Tag(name = "Powers of Attorney", description = "API for managing powers of attorney")
-public class PowerOfAttorneyControllerImpl {
+public class PowerOfAttorneyController {
 
     @Autowired
     private PowerOfAttorneyService powerOfAttorneyService;
