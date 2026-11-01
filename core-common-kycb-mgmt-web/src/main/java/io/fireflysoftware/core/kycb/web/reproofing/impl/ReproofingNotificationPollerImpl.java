@@ -85,39 +85,41 @@ public final class ReproofingNotificationPollerImpl implements SmartLifecycle {
         });
         future = scheduler.schedule(this::cycle, 0, TimeUnit.MILLISECONDS);
     }
-    private void cycle() {
-        final Disposable.Swap current;
-        synchronized (this) {
-            if (!running || active) return;
-            active = true;
-            lastAttempt = clock.instant();
-            current = Disposables.swap();
-            subscription = current;
-        }
+    private record CycleResult(int processed, ReproofingNotificationQueue queue) {}
+    private synchronized void cycle() {
+        if (!running || active) return;
+        active = true;
+        lastAttempt = clock.instant();
+        final Disposable.Swap current = Disposables.swap();
+        subscription = current;
         current.update(Mono.defer(port::dispatchOne)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Invalid notification response")))
                 .flatMap(count -> {
                     if (count < 0 || count > 1) return Mono.error(new IllegalArgumentException("Invalid notification response"));
                     return Mono.defer(port::status)
                             .switchIfEmpty(Mono.error(new IllegalArgumentException("Invalid notification response")))
-                            .doOnNext(q -> success(q, count));
+                            .map(q -> new CycleResult(count, q));
                 })
                 .timeout(settings.requestTimeout())
-                .doOnError(this::failure)
                 .doFinally(signal -> finish(current))
-                .subscribe(ignored -> {}, ignored -> {}));
+                .subscribe(result -> success(current, result), error -> failure(current, error)));
     }
-    private synchronized void success(ReproofingNotificationQueue observed, int count) {
+    private synchronized void success(Disposable.Swap current, CycleResult result) {
+        if (!running || subscription != current || current.isDisposed()) return;
         Instant now = clock.instant();
-        if (observed.observedAt().isAfter(now.plusSeconds(30)) || observed.observedAt().isBefore(now.minusSeconds(90)))
-            throw new IllegalArgumentException("Invalid notification response");
+        var observed = result.queue();
+        if (observed.observedAt().isAfter(now.plusSeconds(30)) || observed.observedAt().isBefore(now.minusSeconds(90))) {
+            failure(current, new IllegalArgumentException("Invalid notification response"));
+            return;
+        }
         queue = observed;
         lastSuccess = now;
         consecutiveFailures = 0;
-        processed.increment(count);
+        processed.increment(result.processed());
         successes.increment();
     }
-    private synchronized void failure(Throwable error) {
+    private synchronized void failure(Disposable.Swap current, Throwable error) {
+        if (!running || subscription != current || current.isDisposed()) return;
         if (consecutiveFailures < Long.MAX_VALUE) consecutiveFailures++;
         failures.increment();
         String category = error instanceof TimeoutException ? "timeout"
