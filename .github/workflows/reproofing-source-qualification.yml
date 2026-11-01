@@ -23,8 +23,9 @@ jobs:
       - name: Installer-owned hosted PostgreSQL
         run: python3 tooling/reproofing_postgres_fixture.py
       - name: Prepare readable candidate source artifact on hosted JVM
+        continue-on-error: true
         run: |
-          curl --fail --silent --show-error --location https://github.com/google/google-java-format/releases/download/v1.24.0/google-java-format-1.24.0-all-deps.jar --output "$RUNNER_TEMP/google-java-format.jar"
+          curl --fail --silent --show-error --location https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format-2.0.0-all-deps.jar --output "$RUNNER_TEMP/google-java-format.jar"
           python3 tooling/format_candidate_source.py "$RUNNER_TEMP/google-java-format.jar"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

@@ -8,5 +8,5 @@ files=[]
 for source in root.glob('*/src/**/*.java'):
  if '/reproofing/' not in str(source):continue
  target=output/source.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,target);files.append(str(target))
-subprocess.run(['java','-jar',sys.argv[1],'--aosp','--replace',*files],check=True)
+subprocess.run(['java','-jar',sys.argv[1],'--aosp','--cleanup=false','--replace',*files],check=True)
 print('Prepared candidate source formatting artifact; original qualification source unchanged.')
