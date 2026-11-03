@@ -36,7 +36,10 @@ import org.springframework.web.reactive.config.EnableWebFlux;
 )
 @EnableWebFlux
 @EnableR2dbcRepositories(
-        basePackages = "io.fireflysoftware.core.kycb.models.repositories"
+        basePackages = "io.fireflysoftware.core.kycb.models.repositories",
+        excludeFilters = @org.springframework.context.annotation.ComponentScan.Filter(
+                type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
+                classes = io.fireflysoftware.core.kycb.models.repositories.decision.KycDecisionPersistence.class)
 )
 @EnableR2dbcAuditing
 @ConfigurationPropertiesScan

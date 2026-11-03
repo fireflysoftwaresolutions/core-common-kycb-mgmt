@@ -17,6 +17,22 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.fireflyframework</groupId>
+            <artifactId>fireflyframework-security-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.fireflyframework</groupId>
+            <artifactId>fireflyframework-security-spi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
         <!-- Internal modules -->
         <dependency>
             <groupId>io.fireflysoftware</groupId>
@@ -25,6 +41,12 @@
         <dependency>
             <groupId>io.fireflysoftware</groupId>
             <artifactId>core-common-kycb-mgmt-models</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.fireflysoftware</groupId>
+            <artifactId>core-common-customer-mgmt-sdk</artifactId>
+            <version>26.10.6</version>
         </dependency>
 
         <!-- Common Libraries -->
@@ -57,6 +79,11 @@
         </dependency>
 
         <!-- Testing -->
+        <dependency>
+            <groupId>org.fireflyframework</groupId>
+            <artifactId>fireflyframework-security-resource-server</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

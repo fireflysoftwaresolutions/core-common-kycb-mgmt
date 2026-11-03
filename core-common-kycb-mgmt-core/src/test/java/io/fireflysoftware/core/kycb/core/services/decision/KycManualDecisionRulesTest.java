@@ -1,0 +1,40 @@
+package io.fireflysoftware.core.kycb.core.services.decision;
+
+import static org.junit.jupiter.api.Assertions.*;
+import io.fireflysoftware.core.kycb.interfaces.decision.KycDecisionContracts.*;
+import java.time.*;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+
+/** Pure owner rules: actors and evidence are controlled facts, not authenticated admission. */
+class KycManualDecisionRulesTest {
+    private static final Instant NOW=Instant.parse("2026-11-02T12:00:00Z");
+    private static final Scope SCOPE=new Scope(new UUID(0,1),new UUID(0,2),new UUID(0,3));
+    private static final Actor MAKER=new Actor("https://issuer.example","maker",new UUID(0,4));
+    private static final Actor CHECKER=new Actor("https://issuer.example","checker",new UUID(0,5));
+    private static Submission submit(UUID action,Scope scope,Actor actor,List<Evidence> evidence,Instant at,Instant until,Instant policy){
+        var controlledUndatedSources=evidence.stream().map(value->new SourceExpiry(value.documentId(),null,null,null,null)).toList();
+        return KycManualDecisionRules.submit(action,scope,actor,evidence,controlledUndatedSources,at,until,policy);
+    }
+    private Evidence evidence(){return new Evidence(new UUID(0,6),"MANUAL_CASE_FILE","retained-case-17","a".repeat(64),NOW.minusSeconds(60),NOW.plusSeconds(3600));}
+    private Submission submission(){return submit(new UUID(0,7),SCOPE,MAKER,List.of(evidence()),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900));}
+    private Review approve(){return KycManualDecisionRules.review(new UUID(0,8),submission(),CHECKER,ReviewOutcome.APPROVE,"MANUAL_REVIEW_COMPLETE",NOW.plusSeconds(1));}
+    @Test void manualSubmissionBindsActualScopeActorEvidenceAndFinitePolicyWindow(){var value=submission();assertEquals(SCOPE,value.scope());assertEquals(MAKER,value.maker());assertEquals(List.of(evidence()),value.evidence());assertEquals(Purpose.CARD_ENROLLMENT,value.purpose());assertEquals(DecisionMode.MANUAL_REVIEW,value.mode());assertEquals(ExternalExecution.NOT_REQUESTED,value.externalExecution());assertEquals(NOW.plusSeconds(600),value.validUntil());assertTrue(value.digest().matches("[0-9a-f]{64}"));}
+    @Test void onlyIndependentApprovedReviewCanProduceCurrentManualReceipt(){var current=KycManualDecisionRules.current(submission(),approve(),false,0,NOW.plusSeconds(2),NOW.plusSeconds(5));assertEquals(SCOPE,current.scope());assertEquals(Purpose.CARD_ENROLLMENT,current.purpose());assertEquals(DecisionMode.MANUAL_REVIEW,current.mode());assertEquals(ExternalExecution.NOT_REQUESTED,current.externalExecution());assertEquals(approve().actionId(),current.decisionActionId());assertEquals(NOW.plusSeconds(5),current.effectiveUntil());}
+    @Test void sameIssuerSubjectOrStaffIdentityCannotReviewOwnSubmission(){for(var actor:List.of(MAKER,new Actor(MAKER.issuer(),MAKER.subject(),CHECKER.staffActorId()),new Actor(MAKER.issuer(),CHECKER.subject(),MAKER.staffActorId())))assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.review(new UUID(0,8),submission(),actor,ReviewOutcome.APPROVE,"MANUAL_REVIEW_COMPLETE",NOW.plusSeconds(1)));}
+    @Test void rejectedPendingOrRevokedDecisionNeverBecomesCurrent(){var rejected=KycManualDecisionRules.review(new UUID(0,8),submission(),CHECKER,ReviewOutcome.REJECT,"EVIDENCE_INSUFFICIENT",NOW.plusSeconds(1));assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.current(submission(),null,false,0,NOW.plusSeconds(2),NOW.plusSeconds(5)));assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.current(submission(),rejected,false,0,NOW.plusSeconds(2),NOW.plusSeconds(5)));assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.current(submission(),approve(),true,1,NOW.plusSeconds(2),NOW.plusSeconds(5)));}
+    @Test void expiredOrFutureEvidenceCannotBeSubmitted(){for(var evidence:List.of(new Evidence(new UUID(0,6),"MANUAL_CASE_FILE","retained-case-17","a".repeat(64),NOW.minusSeconds(60),NOW),new Evidence(new UUID(0,6),"MANUAL_CASE_FILE","retained-case-17","a".repeat(64),NOW.plusSeconds(1),NOW.plusSeconds(3600))))assertThrows(IllegalArgumentException.class,()->submit(new UUID(0,7),SCOPE,MAKER,List.of(evidence),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900)));}
+    @Test void evidenceAndOwnerPolicyEachBoundDecisionValidity(){assertThrows(IllegalArgumentException.class,()->submit(new UUID(0,7),SCOPE,MAKER,List.of(evidence()),NOW,NOW.plusSeconds(901),NOW.plusSeconds(900)));assertThrows(IllegalArgumentException.class,()->submit(new UUID(0,7),SCOPE,MAKER,List.of(evidence()),NOW,NOW.plusSeconds(3601),NOW.plusSeconds(7200)));assertThrows(IllegalArgumentException.class,()->submit(new UUID(0,7),SCOPE,MAKER,List.of(evidence()),NOW,NOW,NOW.plusSeconds(900)));}
+    @Test void missingDuplicateOrMutableEvidenceListsCannotCreateAmbiguousSubmission(){assertThrows(IllegalArgumentException.class,()->submit(new UUID(0,7),SCOPE,MAKER,List.of(),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900)));assertThrows(IllegalArgumentException.class,()->submit(new UUID(0,7),SCOPE,MAKER,List.of(evidence(),evidence()),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900)));var list=new ArrayList<>(List.of(evidence()));var result=submit(new UUID(0,7),SCOPE,MAKER,list,NOW,NOW.plusSeconds(600),NOW.plusSeconds(900));list.clear();assertEquals(1,result.evidence().size());}
+    @Test void reviewMustBeTimelyAndBindTheExactSubmission(){assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.review(new UUID(0,8),submission(),CHECKER,ReviewOutcome.APPROVE,"MANUAL_REVIEW_COMPLETE",NOW.minusSeconds(1)));assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.review(new UUID(0,8),submission(),CHECKER,ReviewOutcome.APPROVE,"MANUAL_REVIEW_COMPLETE",NOW.plusSeconds(600)));var changed=submit(new UUID(0,9),SCOPE,MAKER,List.of(evidence()),NOW,NOW.plusSeconds(599),NOW.plusSeconds(900));assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.current(changed,approve(),false,0,NOW.plusSeconds(2),NOW.plusSeconds(5)));}
+    @Test void currentReadCannotExtendBusinessExpiryOrFiveSecondObservation(){assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.current(submission(),approve(),false,0,NOW.plusSeconds(600),NOW.plusSeconds(601)));assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.current(submission(),approve(),false,0,NOW.plusSeconds(2),NOW.plusSeconds(8)));assertThrows(IllegalArgumentException.class,()->KycManualDecisionRules.current(submission(),approve(),false,-1,NOW.plusSeconds(2),NOW.plusSeconds(5)));}
+    @Test void sourceIdentityEvidenceAndDecisionWindowAreDigestBound(){var expected=submission().digest();var otherScope=new Scope(SCOPE.tenantId(),new UUID(0,99),SCOPE.kycCaseId());assertNotEquals(expected,submit(new UUID(0,7),otherScope,MAKER,List.of(evidence()),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900)).digest());var e=evidence();var changed=new Evidence(e.documentId(),e.sourceSystem(),e.sourceReference(),"b".repeat(64),e.collectedAt(),e.validUntil());assertNotEquals(expected,submit(new UUID(0,7),SCOPE,MAKER,List.of(changed),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900)).digest());assertNotEquals(expected,submit(new UUID(0,7),SCOPE,MAKER,List.of(evidence()),NOW,NOW.plusSeconds(599),NOW.plusSeconds(900)).digest());}
+    @Test void resolvedOwnerExpiryIsPartOfTheOriginalSubmissionDigest(){
+        var e=evidence();var civil=LocalDateTime.parse("2099-01-01T00:00:00");var utc=new SourceExpiry(e.documentId(),civil,"UTC",0,Instant.parse("2099-01-01T00:00:00Z"));
+        var ny=new SourceExpiry(e.documentId(),civil,"America/New_York",-18000,Instant.parse("2099-01-01T05:00:00Z"));
+        var first=KycManualDecisionRules.submit(new UUID(0,7),SCOPE,MAKER,List.of(e),List.of(utc),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900));
+        var second=KycManualDecisionRules.submit(new UUID(0,7),SCOPE,MAKER,List.of(e),List.of(ny),NOW,NOW.plusSeconds(600),NOW.plusSeconds(900));
+        assertNotEquals(first.digest(),second.digest());assertEquals(List.of(utc),first.sourceExpiries());
+    }
+
+}
