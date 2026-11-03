@@ -812,6 +812,36 @@ mvn test jacoco:report
 
 The test suite is integrated into the CI/CD pipeline and runs automatically on every pull request and merge to the main branch, ensuring that all changes to the codebase are properly tested before being deployed to production.
 
+## Governed manual KYC for card enrollment
+
+The opt-in manual decision capability binds an existing KYC case and its original documents to a current Customer party. It records a named staff member's evidence submission, a distinct staff review, revocation, and original-action recovery. `MANUAL_REVIEW` and external execution `NOT_REQUESTED` are explicit receipt fields. A legacy `VERIFIED` flag, an active Customer record, or the default external provider adapter never supplies a positive decision.
+
+The five operations are beneath `/api/v1/tenants/{tenantId}/parties/{partyId}/kyc-cases/{caseId}/manual-decisions`:
+
+| Method and suffix | Operation |
+| --- | --- |
+| POST `/submissions` | Persist evidence with the caller's stable action and expected control version. |
+| POST `/reviews` | Review the original submission action and returned digest using an independent staff identity. |
+| POST `/revocations` | Revoke the selected action at the expected control version. |
+| GET `/actions/{actionId}` | Recover the original actor's immutable action receipt without new writes. |
+| GET `/decisions/{decisionActionId}/current` | Read a currently approved, unrevoked, unexpired decision under fresh authority. |
+
+Use the controller-generated `ManualCardEnrollmentKycApi` from the complete SDK. The `manualKycBearer` authentication entry is named explicitly. Commands accept no actor fields: the native signed principal supplies identity. Authoritative timestamps remain `Instant`, and offsetless timestamp input is rejected. Regenerate the complete SDK through the original Web producer; generated Java and emitted canonical replacements are qualification/build outputs, not committed source.
+
+Deployment requires `firefly.kyc.manual.enabled=true`, the native resource server explicitly enabled with strict policy, and an institution-defined ISO-8601 `firefly.kyc.manual.maximum-validity`. The deployment must also set `firefly.kyc.manual.source-expiry-zone` to an explicit IANA time-zone ID; there is no inferred default. A dated original document must resolve to exactly one offset (DST gaps and overlaps are refused), remain unexpired, and cover the submitted evidence and decision validity. Its civil date, zone, offset, and resolved instant are retained in the immutable submission digest and canonical audit binding. Reviews and current observations use that stored interpretation; a later deployment-zone change cannot extend the original approval. Configure the `native.issuer`, `native.audience`, and each purpose-specific `native.{submit,review,revoke,current,recover}-client-ids` beneath that prefix. STAFF commands/recovery require the matching `kyc:manual-decisions:*` scope and current PDP permission. Current read also supports a signed HUMAN principal bound to the exact party. The original principal must carry `customer:parties:read` for delegated Customer observation; this verifies persisted party identity, not KYC eligibility.
+
+Customer delegation uses the published OAuth token-exchange client and genuine Customer SDK. Configure `customer.endpoint`, `customer.audience`, `customer.registration-id`, `customer.client-id`, `customer.client-secret`, `customer.token-uri`, and `customer.jwk-set-uri` beneath the manual prefix. Supply credentials through the deployment secret mechanism. HTTPS is required; `customer.allow-loopback-http` is restricted to explicit loopback qualification. Tokens stay in ephemeral request context and are never stored in the decision journal.
+
+Configure a current `PolicyEvaluationPort` with same-response policy provenance. The optional `firefly.kyc.manual.opa` adapter accepts explicit `enabled`, `endpoint`, `decision-path`, and `evaluation-path`; loopback HTTP requires its own explicit qualification flag. Unavailable authority does not grant access.
+
+Install the original migrations and shared immutable-audit/completed-append deployment before the explicit optional `db/optional/manual-decision/V12__Governed_Card_Enrollment_Kyc_Decisions.sql`. This is not an automatic migration. Configure distinct `database.command` and `database.reader` profiles beneath the manual prefix, each with `host`, `port`, `name`, `username`, `password`, and `ssl-mode`. The command login is the original restricted `firefly_audit_writer`; the separate reader login belongs to `kyc_manual_reader`. Both profiles must address the same database. Ordinary business persistence uses the exact transaction-bound mapped Spring Data template; the native functions enforce ownership, locks, deadlines, audit pairing, and deferred completion.
+
+Exact retries preserve the original action and receipt. Conflicting intent is rejected. A committed action whose response cannot be authorized before the original narrowed deadline is withheld; recover the same action rather than creating or retrying a new one. Revocation and expiry prevent current admission without destroying historical receipts.
+
+The replaceable external `KycVerificationProvider` defaults to NoOp: initiation is `NOT_CONFIGURED/NOT_EXECUTED`, and observation of a previous provider operation remains `NOT_CONFIGURED/UNKNOWN`. Manual review is a separate explicit staff decision and never a substitute label for executed external verification. This capability does not issue a card or establish card-network acceptance.
+
+The current bounded transaction implementation is qualified from the distinct current-framework source artifact; a coordinated framework release/adoption is required before published-runtime acceptance. Native PostgreSQL tests, signed exchange tests, original reactor/SDK generation, and packaged Main qualification remain separate evidence boundaries.
+
 ## Contributing
 
 We welcome contributions to improve the Firefly KYC/B & AML Management microservice. Please follow these steps:

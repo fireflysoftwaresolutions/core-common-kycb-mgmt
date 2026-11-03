@@ -34,6 +34,8 @@ import org.springframework.context.annotation.ComponentScan;
 @ComponentScan(basePackages = "io.fireflysoftware.core.kycb.web.controllers")
 public class OpenApiGenApplication {
     public static void main(String[] args) {
-        SpringApplication.run(OpenApiGenApplication.class, args);
+        var application = new SpringApplication(OpenApiGenApplication.class);
+        application.setDefaultProperties(java.util.Map.of("firefly.openapi.instant-scalar.enabled", "true"));
+        application.run(args);
     }
 }
